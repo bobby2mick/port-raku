@@ -631,7 +631,7 @@ tr:hover td { background: #f7f8fc; }
       ① <a href="https://jpx-jquants.com" target="_blank" style="color:var(--blue);">jpx-jquants.com</a> にログイン<br>
       ② 「マイページ」→「APIキー発行」でキーをコピー<br>
       ③ 下に貼り付けて「保存」<br>
-      <span style="color:var(--green);font-size:12px;">✓ ブラウザから直接取得（server.py不要）※CORS許可時</span>
+      <span id="jqauth-cors-note" style="font-size:12px;color:var(--amber);">⚠️ ブラウザ直接取得はJ-Quants側のCORS設定により制限される場合があります</span>
     </div>
     <div class="form-field">
       <label class="form-label">API キー</label>
@@ -1194,6 +1194,8 @@ async function fetchPrices(silent=false){
   const btn=document.getElementById('btn-fetch-prices');
   const chip=document.getElementById('price-chip');
   if(!silent){btn.disabled=true;btn.textContent='取得中...';}
+  // localhost以外（GitHub Pages等）ではserver.pyは使えない
+  const isLocal=location.hostname==='localhost'||location.hostname==='127.0.0.1';
   try{
     let data=null;
 
@@ -1202,23 +1204,25 @@ async function fetchPrices(silent=false){
     if(savedKey){
       const res=await fetchPricesDirect(savedKey);
       if(res.error==='unauthorized'){
-        // キーが無効 → 削除して認証モーダルへ
         localStorage.removeItem(LS_APIKEY);
         openJQAuth();
         return;
       }
       if(!res.error&&res.prices){
         data=res; // 直接取得成功
+      }else if(res.error==='cors'&&!isLocal&&!silent){
+        // GitHub Pages上でCORSブロック → APIキー方式は使えない旨を通知
+        alert('J-Quants APIがブラウザからの直接アクセスを制限しています。\n\n株価取得はMacのWiFi経由（server.py）でご利用ください。\nまたはJ-QuantsのCORS設定が解除されるまでお待ちください。');
+        return;
       }
-      // CORS エラーの場合は server.py フォールバックへ
+      // CORSエラーでlocalhostの場合のみserver.pyへフォールバック
     }
 
-    // ② server.py 経由フォールバック
-    if(!data){
+    // ② server.py 経由フォールバック（localhostのみ）
+    if(!data&&isLocal){
       try{
         const r=await fetch('/api/prices',{signal:AbortSignal.timeout(12000)});
         if(r.status===401){
-          // server.py 未認証 → 認証モーダル（server.py 経由で認証）
           if(!savedKey)openJQAuth();
           return;
         }
@@ -1230,13 +1234,18 @@ async function fetchPrices(silent=false){
           return;
         }
       }catch(e){
-        // server.py も未起動 → APIキー未設定なら認証モーダル
         if(!silent&&!savedKey){openJQAuth();return;}
         if(!silent&&!data){
-          alert('株価取得に失敗しました。\n\n【方法①】APIキーを設定してください（📈 株価取得ボタン）\n【方法②】server.py を起動してください:\npython3 ~/Downloads/server.py');
+          alert('株価取得に失敗しました。\n\nAPIキーを設定するか、server.py を起動してください:\npython3 ~/Downloads/server.py');
         }
         return;
       }
+    }
+
+    // ③ APIキー未設定かつGitHub Pages → 認証モーダル
+    if(!data&&!savedKey&&!isLocal){
+      if(!silent)openJQAuth();
+      return;
     }
 
     if(!data)return;
