@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ポートフォリオ ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:      #f4f5f8;
+  --card:    #ffffff;
+  --card2:   #f9fafc;
+  --border:  #e8eaef;
+  --border2: #d0d3dc;
+  --text:    #1c2033;
+  --text2:   #5f667a;
+  --text3:   #9ca3b4;
+  --blue:    #3b7bf6;
+  --blue-bg: #eef3fe;
+  --green:   #0fad74;
+  --green-bg:#edf9f4;
+  --red:     #e8404a;
+  --red-bg:  #fef2f2;
+  --amber:   #e09500;
+  --amber-bg:#fef9ec;
+  --purple:  #7c5cec;
+  --purple-bg:#f3f0fe;
+  --shadow:  0 1px 4px rgba(28,32,51,0.07), 0 0 0 1px rgba(28,32,51,0.04);
+  --shadow-md:0 4px 12px rgba(28,32,51,0.10), 0 0 0 1px rgba(28,32,51,0.05);
+  --radius:  14px;
+  --radius-sm:9px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+
+/* ══ DROP ZONE ══════════════════════════════════════ */
+#drop-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 24px; padding: 2rem; }
+#drop-zone.hidden { display: none; }
+.drop-card { background: var(--card); border-radius: 20px; box-shadow: var(--shadow-md); padding: 56px 72px; max-width: 500px; width: 100%; text-align: center; }
+.drop-icon { font-size: 52px; margin-bottom: 18px; }
+.drop-title { font-size: 21px; font-weight: 700; margin-bottom: 8px; }
+.drop-sub { color: var(--text2); font-size: 13px; margin-bottom: 24px; line-height: 1.7; }
+.drop-box-inner { border: 2px dashed var(--border2); border-radius: var(--radius); padding: 24px; margin-bottom: 18px; transition: border-color .2s, background .2s; }
+.drop-box-inner.dragover { border-color: var(--blue); background: var(--blue-bg); }
+.btn-primary { display: inline-block; background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm); padding: 11px 28px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+.btn-primary:hover { opacity: .88; }
+.drop-hint { font-size: 12px; color: var(--text3); max-width: 460px; text-align: center; line-height: 2; }
+#upload-error { display: none; background: var(--red-bg); border: 1px solid #fca5a5; border-radius: var(--radius-sm); padding: 14px 18px; max-width: 500px; width: 100%; color: var(--red); font-size: 13px; line-height: 1.7; }
+#upload-error.visible { display: block; }
+
+/* ══ HEADER ══════════════════════════════════════════ */
+#dashboard { display: none; }
+#dashboard.visible { display: block; }
+header {
+  background: var(--card); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 32px;
+  box-shadow: 0 1px 4px rgba(28,32,51,0.05);
+}
+.logo { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.logo-mark { background: var(--blue); color: #fff; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+.logo-text { color: var(--text); }
+.logo-text span { color: var(--text3); font-weight: 400; font-size: 13px; margin-left: 4px; }
+.date-chip { font-size: 12px; color: var(--text2); background: var(--card2); border: 1px solid var(--border); padding: 4px 12px; border-radius: 20px; font-family: 'DM Mono', monospace; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn-header { font-size: 12px; color: var(--text2); background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 14px; cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap; }
+.btn-header:hover { border-color: var(--blue); color: var(--blue); }
+.btn-help   { border-color: var(--purple); color: var(--purple); background: var(--purple-bg); }
+.btn-help:hover { background: var(--purple-bg); opacity: .85; }
+.btn-update { border-color: var(--green);  color: var(--green);  background: var(--green-bg); }
+.btn-update:hover { opacity: .85; }
+.btn-update:disabled { opacity: .5; cursor: not-allowed; }
+.btn-price  { border-color: var(--blue);   color: var(--blue);   background: var(--blue-bg); }
+.btn-price:hover { opacity: .85; }
+.btn-price:disabled { opacity: .5; cursor: not-allowed; }
+.chip { font-size: 11px; padding: 5px 12px; border-radius: 20px; font-family: 'DM Mono', monospace; cursor: pointer; border: 1px solid; transition: all .15s; white-space: nowrap; }
+.chip-idle    { background: var(--blue-bg);   color: var(--blue);  border-color: #bfcffe; }
+.chip-loading { background: var(--amber-bg);  color: var(--amber); border-color: #fcd34d; animation: pulse .9s ease-in-out infinite; }
+.chip-done    { background: var(--green-bg);  color: var(--green); border-color: #6ee7b7; }
+.chip-err     { background: var(--red-bg);    color: var(--red);   border-color: #fca5a5; }
+.chip-yf      { background: var(--purple-bg); color: var(--purple); border-color: #c4b5fd; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ══ MAIN ════════════════════════════════════════════ */
+main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+/* ══ METRICS ═════════════════════════════════════════ */
+.metrics { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
+.metric-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+.metric-label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+.metric-value { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; letter-spacing: -.02em; line-height: 1.2; }
+.metric-sub { font-size: 12px; color: var(--text2); margin-top: 5px; }
+.pos { color: var(--green); } .neg { color: var(--red); } .muted { color: var(--text2); }
+.c-blue { color: var(--blue); } .c-amber { color: var(--amber); } .c-purple { color: var(--purple); }
+
+/* ══ CHARTS ══════════════════════════════════════════ */
+.charts-row { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 14px; margin-bottom: 22px; }
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 22px; }
+.card-title { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 16px; }
+.donut-wrap { position: relative; width: 148px; height: 148px; margin: 0 auto 16px; }
+.donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+.donut-center-val { font-size: 15px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--text); }
+.donut-center-label { font-size: 10px; color: var(--text3); }
+.legend-list { display: flex; flex-direction: column; gap: 8px; }
+.legend-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+.legend-l { display: flex; align-items: center; gap: 8px; }
+.legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.legend-name { color: var(--text2); }
+.legend-val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); }
+
+/* ══ TABLE ═══════════════════════════════════════════ */
+.table-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 22px; margin-bottom: 22px; }
+.table-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.tab-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { font-size: 12px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s; }
+.tab:hover { border-color: var(--blue); color: var(--blue); }
+.tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.col-toggle-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.ctog-label { font-size: 11px; color: var(--text3); margin-right: 2px; }
+.ctog { font-size: 11px; padding: 3px 11px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text3); cursor: pointer; font-family: inherit; transition: all .15s; }
+.ctog.on { background: var(--blue-bg); color: var(--blue); border-color: #bfcffe; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .05em; text-transform: uppercase; padding: 9px 12px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #f7f8fc; }
+.mono { font-family: 'DM Mono', monospace; }
+.sort-btn { cursor: pointer; user-select: none; }
+.sort-btn:hover { color: var(--blue); }
+.badge { display: inline-flex; align-items: center; font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; gap: 3px; }
+.b-nisa     { background: #dbeafe; color: #1d4ed8; }
+.b-tsumitate{ background: #ede9fe; color: #6d28d9; }
+.b-toku     { background: #d1fae5; color: #065f46; }
+.b-old      { background: #fef3c7; color: #92400e; }
+.b-other    { background: var(--card2); color: var(--text2); border: 1px solid var(--border); }
+.b-yutai    { background: #fef9c3; color: #a16207; }
+.b-jq       { background: #d1fae5; color: #065f46; }
+.b-yf       { background: #ede9fe; color: #6d28d9; }
+.b-ref      { background: var(--card2); color: var(--text3); border: 1px solid var(--border); }
+
+/* ══ BOTTOM ROW ══════════════════════════════════════ */
+.bottom-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
+
+/* ══ 株主優待 ════════════════════════════════════════ */
+.section-head { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .07em; text-transform: uppercase; margin-bottom: 14px; }
+.yutai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.yutai-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; border-top: 3px solid var(--amber); }
+.yutai-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.yutai-code { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+.yutai-holding { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+.yutai-holding strong { color: var(--text); font-family: 'DM Mono', monospace; }
+.yutai-desc { font-size: 12px; color: var(--text); line-height: 1.75; margin-bottom: 8px; }
+.yutai-timing { font-size: 11px; color: var(--text3); }
+.note { font-size: 11px; color: var(--text3); margin-top: 10px; line-height: 1.7; }
+
+/* ══ MODAL BASE ══════════════════════════════════════ */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(28,32,51,0.35); z-index: 200; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(2px); }
+.overlay.visible { display: flex; }
+
+/* ══ JQ MODAL ════════════════════════════════════════ */
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+.modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 22px; line-height: 1.75; }
+.form-field { margin-bottom: 14px; }
+.form-label { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: .06em; display: block; margin-bottom: 5px; }
+.form-input { width: 100%; background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 13px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; transition: border-color .2s; }
+.form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,123,246,0.1); }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.btn-modal-cancel { flex: 1; background: var(--card2); color: var(--text2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px; font-size: 13px; font-family: inherit; cursor: pointer; }
+.btn-modal-cancel:hover { border-color: var(--border2); color: var(--text); }
+.btn-modal-ok { flex: 2; background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm); padding: 10px; font-size: 13px; font-family: inherit; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+.btn-modal-ok:hover { opacity: .88; }
+.btn-modal-ok:disabled { opacity: .45; cursor: not-allowed; }
+.modal-err { font-size: 12px; color: var(--red); margin-top: 10px; display: none; }
+.divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+.divider-line { flex: 1; height: 1px; background: var(--border); }
+.divider-text { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.row-flex { display: flex; gap: 8px; }
+
+/* ══ HELP MODAL ══════════════════════════════════════ */
+#help-overlay .help-modal { background: var(--card); border-radius: 20px; box-shadow: var(--shadow-md); width: 100%; max-width: 600px; max-height: 88vh; display: flex; flex-direction: column; position: relative; }
+.help-head { padding: 24px 28px 0; flex-shrink: 0; }
+.help-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.help-sub { font-size: 12px; color: var(--text3); margin-bottom: 18px; }
+.help-tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--border); }
+.htab { font-size: 13px; padding: 9px 18px; border: none; background: transparent; color: var(--text2); cursor: pointer; font-family: inherit; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; border-radius: 8px 8px 0 0; }
+.htab:hover { color: var(--blue); background: var(--blue-bg); }
+.htab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.help-body { padding: 22px 28px; overflow-y: auto; flex: 1; }
+.help-close-btn { position: absolute; top: 16px; right: 18px; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; color: var(--text2); transition: all .15s; }
+.help-close-btn:hover { background: var(--border); color: var(--text); }
+/* ステップ */
+.steps { display: flex; flex-direction: column; }
+.step { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--border); }
+.step:last-child { border-bottom: none; }
+.step-left { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.step-num { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.sn-blue   { background: var(--blue-bg);   color: var(--blue);   }
+.sn-green  { background: var(--green-bg);  color: var(--green);  }
+.sn-amber  { background: var(--amber-bg);  color: var(--amber);  }
+.sn-purple { background: var(--purple-bg); color: var(--purple); }
+.step-line { width: 2px; flex: 1; min-height: 14px; background: var(--border); margin-top: 6px; }
+.step-body { flex: 1; padding-top: 5px; }
+.step-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sbadge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+.sb-every { background: var(--green-bg); color: var(--green); }
+.sb-once  { background: var(--purple-bg); color: var(--purple); }
+.step-desc { font-size: 13px; color: var(--text2); line-height: 1.8; margin-bottom: 10px; }
+.step-box { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--text2); line-height: 1.9; margin-bottom: 8px; }
+.code-row { display: flex; align-items: center; gap: 8px; background: #1e2233; border-radius: var(--radius-sm); padding: 11px 15px; margin-bottom: 8px; }
+.code-row code { flex: 1; font-family: 'DM Mono', monospace; font-size: 12px; color: #7dd3fc; }
+.btn-copy { font-size: 11px; padding: 4px 11px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s; }
+.btn-copy:hover { background: rgba(255,255,255,0.14); color: #e2e8f0; }
+.btn-copy.copied { border-color: #6ee7b7; color: #6ee7b7; }
+.step-tip { font-size: 11px; color: var(--amber); background: var(--amber-bg); border-radius: 6px; padding: 7px 12px; line-height: 1.7; margin-top: 4px; }
+/* フッター */
+.help-footer { padding: 14px 28px; border-top: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.help-freq { font-size: 12px; color: var(--text2); }
+.help-freq strong { color: var(--text); }
+.btn-close-help { background: var(--card2); color: var(--text2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 22px; font-size: 13px; font-family: inherit; cursor: pointer; transition: all .15s; }
+.btn-close-help:hover { border-color: var(--blue); color: var(--blue); }
+
+/* ══ PAGE TABS ═══════════════════════════════════════ */
+.page-nav { display:none; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:61px; z-index:99; padding:0 32px; }
+.page-nav.visible { display:flex; }
+.ptab { font-size:14px; padding:12px 22px; border:none; background:transparent; color:var(--text2); cursor:pointer; font-family:inherit; font-weight:500; border-bottom:3px solid transparent; margin-bottom:-1px; transition:all .15s; white-space:nowrap; }
+.ptab:hover { color:var(--blue); }
+.ptab.active { color:var(--blue); border-bottom-color:var(--blue); font-weight:700; }
+
+/* ══ DIVIDEND PAGE ════════════════════════════════════ */
+#page-dividend { display:none; }
+#page-dividend.visible { display:block; }
+.div-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+.div-seg { display:inline-flex; background:var(--card2); border:1px solid var(--border2); border-radius:var(--radius-sm); overflow:hidden; }
+.div-seg-btn { font-size:12px; padding:7px 16px; border:none; background:transparent; color:var(--text2); cursor:pointer; font-family:inherit; font-weight:500; transition:all .15s; white-space:nowrap; }
+.div-seg-btn.active { background:var(--blue); color:#fff; }
+.div-seg-sep { width:1px; background:var(--border2); flex-shrink:0; }
+.month-sel-card { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-bottom:22px; }
+.month-title { font-size:13px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.m-badge { font-size:12px; padding:3px 12px; border-radius:20px; background:var(--blue-bg); color:var(--blue); border:1px solid #bfcffe; font-family:'DM Mono',monospace; }
+.div-rank-wrap { position:relative; overflow-y:auto; }
+
+/* ══ RESPONSIVE ══════════════════════════════════════ */
+@media (max-width: 1100px) { .metrics { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 900px) {
+  .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .charts-row, .bottom-row { grid-template-columns: 1fr; }
+  header, main { padding-left: 16px; padding-right: 16px; }
+  .drop-card { padding: 40px 28px; }
+}
+
+/* ══ MOBILE (スマホ対応) ══════════════════════════════ */
+@media (max-width: 600px) {
+  /* ヘッダー: 2行に折り返し */
+  header { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+  .logo-text span { display: none; }
+  .header-right { width: 100%; gap: 6px; }
+  .btn-header { font-size: 11px; padding: 6px 10px; }
+  #save-indicator { font-size: 10px; padding: 4px 8px; }
+
+  /* ページタブ */
+  .page-nav { top: auto; padding: 0 14px; }
+  .ptab { font-size: 13px; padding: 10px 16px; }
+
+  /* メトリクス: 2列 */
+  .metrics, #div-metrics { grid-template-columns: repeat(2, 1fr) !important; }
+  .metric-value { font-size: 16px; }
+
+  /* チャート行 */
+  .charts-row, .bottom-row { grid-template-columns: 1fr !important; }
+  main { padding: 14px; }
+
+  /* ドロップゾーン */
+  .drop-card { padding: 32px 20px; }
+  .drop-icon { font-size: 38px; }
+  #restore-banner { padding: 16px 18px; }
+
+  /* テーブル: 横スクロール強制 */
+  .table-wrap, .month-sel-card .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { font-size: 12px; min-width: 480px; }
+  th, td { padding: 8px 8px; }
+
+  /* 列トグルバー */
+  .col-toggle-bar { gap: 4px; }
+  .ctog { font-size: 10px; padding: 3px 8px; }
+
+  /* タブバー */
+  .tab-bar { gap: 4px; }
+  .tab { font-size: 11px; padding: 4px 10px; }
+
+  /* カード */
+  .card { padding: 14px 14px; }
+  .table-card { padding: 14px 14px; }
+
+  /* 配当コントロール */
+  .div-controls { gap: 6px; }
+  .div-seg-btn { font-size: 11px; padding: 6px 10px; }
+
+  /* ドーナツ */
+  .donut-wrap { width: 130px !important; height: 130px !important; }
+
+  /* 月詳細テーブル */
+  .month-sel-card { padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ DROP ZONE ═════════════════════════════════════════ -->
+<div id="drop-zone">
+  <!-- 保存済みデータ復元バナー -->
+  <div id="restore-banner" style="display:none;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:20px 28px;max-width:500px;width:100%;text-align:center;">
+    <div style="font-size:20px;margin-bottom:8px;">💾</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:6px;">保存済みデータがあります</div>
+    <div id="restore-info" style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8;"></div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="btn-primary" onclick="restoreData()" style="padding:10px 28px;">復元して開く</button>
+      <button onclick="clearSavedData()" style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 18px;font-size:13px;font-family:inherit;cursor:pointer;color:var(--text2);">削除して新規</button>
+    </div>
+  </div>
+
+  <div class="drop-card" id="drop-box">
+    <div class="drop-icon">📊</div>
+    <div class="drop-title">ポートフォリオ ダッシュボード</div>
+    <div class="drop-sub">楽天証券の資産状況CSVを読み込んでスタート</div>
+    <div class="drop-box-inner" id="drop-inner">
+      <div style="color:var(--text3);font-size:13px;margin-bottom:14px;">ここにCSVをドラッグ&ドロップ</div>
+      <label class="btn-primary">ファイルを選択<input type="file" accept=".csv,text/csv,text/plain" id="file-input" style="display:none;"></label>
+    </div>
+    <div style="font-size:12px;color:var(--text3);line-height:1.9;">
+      楽天証券 → 資産状況 →「CSVダウンロード」<br>
+      データはブラウザ内のみで処理されます
+    </div>
+  </div>
+  <div id="upload-error"></div>
+</div>
+
+<!-- ══ DASHBOARD ══════════════════════════════════════════ -->
+<div id="dashboard">
+  <header>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="logo">
+        <div class="logo-mark">P</div>
+        <div class="logo-text">Portfolio<span>Dashboard</span></div>
+      </div>
+      <div class="date-chip" id="header-date">—</div>
+    </div>
+    <div class="header-right">
+      <button class="btn-header btn-help" onclick="openHelp()">？ 使い方・更新手順</button>
+      <button class="btn-header btn-price" id="btn-fetch-prices" onclick="fetchPrices()" title="J-Quantsから株価を即時取得（数秒）">📈 株価取得</button>
+      <div id="price-chip" class="chip chip-done" style="display:none;cursor:default;"></div>
+      <button class="btn-header btn-update" id="btn-update-json" onclick="updateJSON()" title="server.py が起動中の場合にJSON作成">⟳ JSON作成</button>
+      <label class="btn-header" style="cursor:pointer;" title="fetch_portfolio_data.py で生成した portfolio_data.json を手動で読み込む">
+        ＋ JSON手動<input type="file" accept=".json" id="json-input" style="display:none;">
+      </label>
+      <div id="yf-chip" class="chip chip-yf" style="display:none;cursor:default;"></div>
+      <span id="save-indicator" style="display:none;font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #6ee7b7;border-radius:20px;padding:4px 12px;">💾 自動保存中</span>
+      <button class="btn-header" onclick="resetDashboard()">↩ CSV再読み込み</button>
+    </div>
+  </header>
+
+  <!-- ══ PAGE TABS ══════════════════════════════════════ -->
+  <nav class="page-nav" id="page-nav">
+    <button class="ptab active" data-page="portfolio" onclick="switchPage('portfolio')">📊 ポートフォリオ</button>
+    <button class="ptab" data-page="dividend" onclick="switchPage('dividend')">💰 配当分析</button>
+  </nav>
+
+  <div id="page-portfolio">
+  <main>
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-label">資産合計</div>
+        <div class="metric-value" id="m-total">—</div>
+        <div class="metric-sub" id="m-daily">前日比 —</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">評価損益</div>
+        <div class="metric-value" id="m-pl">—</div>
+        <div class="metric-sub">前月比 <span id="m-monthly">—</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">実現損益</div>
+        <div class="metric-value" id="m-realized">—</div>
+        <div class="metric-sub muted">確定利益（累計）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">累計配当・分配金</div>
+        <div class="metric-value c-amber" id="m-div">—</div>
+        <div class="metric-sub muted">受取済（円貨）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">予想年間配当</div>
+        <div class="metric-value c-blue" id="m-estdiv">—</div>
+        <div class="metric-sub muted" id="m-estdiv-sub">—</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-row">
+      <div class="card">
+        <div class="card-title">アセット構成</div>
+        <div class="donut-wrap">
+          <canvas id="donut-chart"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-val" id="donut-total">—</div>
+            <div class="donut-center-label">合計</div>
+          </div>
+        </div>
+        <div class="legend-list" id="donut-legend"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">カテゴリ別 評価損益</div>
+        <div style="position:relative;height:220px;"><canvas id="bar-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Holdings table -->
+    <div class="table-card">
+      <div class="table-top">
+        <div class="card-title" style="margin-bottom:0;">保有銘柄明細</div>
+        <div class="tab-bar" id="tab-bar">
+          <button class="tab active" onclick="filterTable('all',this)">すべて</button>
+        </div>
+      </div>
+      <div class="col-toggle-bar">
+        <span class="ctog-label">表示列:</span>
+        <button class="ctog"    id="tog-qty"      onclick="toggleCol('qty')">株数</button>
+        <button class="ctog"    id="tog-avg"      onclick="toggleCol('avg')">平均取得単価</button>
+        <button class="ctog on" id="tog-curprice" onclick="toggleCol('curprice')">最新株価</button>
+        <button class="ctog on" id="tog-divamt"   onclick="toggleCol('divamt')">配当/株</button>
+        <button class="ctog on" id="tog-divnet"   onclick="toggleCol('divnet')">年間受取（税引後）</button>
+        <button class="ctog on" id="tog-yield"   onclick="toggleCol('yield')">配当利回り</button>
+        <button class="ctog on" id="tog-exdate"  onclick="toggleCol('exdate')">権利落ち日</button>
+        <button class="ctog on" id="tog-yutai"   onclick="toggleCol('yutai')">株主優待</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>種別</th>
+            <th class="sort-btn" onclick="sortTable('code')">銘柄 ↕</th>
+            <th>口座</th>
+            <th class="col-qty" style="display:none;text-align:right;">株数</th>
+            <th class="col-avg" style="display:none;text-align:right;">平均取得単価</th>
+            <th class="col-curprice sort-btn" onclick="sortTable('curPrice')" style="text-align:right;">最新株価 ↕</th>
+            <th class="sort-btn" onclick="sortTable('val')" style="text-align:right;">時価評価額 ↕</th>
+            <th class="sort-btn" onclick="sortTable('pl')"  style="text-align:right;">評価損益 ↕</th>
+            <th class="sort-btn" onclick="sortTable('plp')" style="text-align:right;">損益率 ↕</th>
+            <th class="col-divamt sort-btn" onclick="sortTable('divPerShare')" style="text-align:right;">配当/株 ↕</th>
+            <th class="col-divnet sort-btn" onclick="sortTable('divNet')" style="text-align:right;">年間受取（税引後）↕</th>
+            <th class="col-yield sort-btn"  onclick="sortTable('divYield')"    style="text-align:right;">配当利回り ↕</th>
+            <th class="col-exdate" style="text-align:center;">権利落ち日</th>
+            <th class="col-yutai"  style="text-align:center;">株主優待</th>
+          </tr></thead>
+          <tbody id="stock-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Bottom charts -->
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-title">前月比パフォーマンス</div>
+        <div style="position:relative;height:200px;"><canvas id="mom-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">口座別 時価評価額</div>
+        <div style="position:relative;height:200px;"><canvas id="acct-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 株主優待 -->
+    <div id="yutai-section" style="display:none;margin-bottom:24px;">
+      <div class="section-head">株主優待（保有株数で該当するもの）</div>
+      <div class="yutai-grid" id="yutai-grid"></div>
+      <div class="note">※ 優待内容・権利月は変更される場合があります。必ず各社IRをご確認ください。</div>
+    </div>
+  </main>
+  </div><!-- /#page-portfolio -->
+
+  <!-- ══ 配当分析ページ ════════════════════════════════════ -->
+  <div id="page-dividend">
+    <main>
+
+      <!-- メトリクス -->
+      <div class="metrics" style="grid-template-columns:repeat(5,minmax(0,1fr));">
+        <div class="metric-card">
+          <div class="metric-label">年間予想配当（税引前）</div>
+          <div class="metric-value c-amber" id="dm-annual">—</div>
+          <div class="metric-sub muted">受取予想・税引前</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">年間予想配当（税引後）</div>
+          <div class="metric-value c-amber" id="dm-annual-after">—</div>
+          <div class="metric-sub muted">×79.685%（税率20.315%）</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">配当受取銘柄</div>
+          <div class="metric-value" id="dm-count" style="cursor:pointer;" title="クリックで配当銘柄一覧">—</div>
+          <div class="metric-sub" style="margin-top:6px;">
+            <span id="dm-nodiv-count" style="cursor:pointer;color:var(--text3);" title="クリックで非配当銘柄一覧">—</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">月平均受取額（税引前）</div>
+          <div class="metric-value" id="dm-monthly-avg">—</div>
+          <div class="metric-sub muted">12ヶ月均等割り</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">ポートフォリオ利回り</div>
+          <div class="metric-value pos" id="dm-yield">—</div>
+          <div class="metric-sub muted">配当銘柄・加重平均</div>
+        </div>
+      </div>
+
+      <!-- フィルター＋切替 -->
+      <div class="div-controls">
+        <div class="div-seg" id="div-filter-seg">
+          <button class="div-seg-btn" onclick="setDivFilter('all',this)">すべて</button>
+          <div class="div-seg-sep"></div>
+          <button class="div-seg-btn active" onclick="setDivFilter('domestic',this)">日本株</button>
+          <div class="div-seg-sep"></div>
+          <button class="div-seg-btn" onclick="setDivFilter('trust',this)">投資信託</button>
+          <div class="div-seg-sep"></div>
+          <button class="div-seg-btn" onclick="setDivFilter('foreign',this)">米国株</button>
+        </div>
+        <div class="div-seg" id="div-mode-seg">
+          <button class="div-seg-btn active" onclick="setDivMode('ex',this)">確定月</button>
+          <div class="div-seg-sep"></div>
+          <button class="div-seg-btn" onclick="setDivMode('pay',this)">支払月（推定）</button>
+        </div>
+        <span id="div-quality-note" style="font-size:11px;"></span>
+      </div>
+
+      <!-- 月別棒グラフ -->
+      <div class="card" style="margin-bottom:22px;">
+        <div class="card-title">月別 予想配当金</div>
+        <div style="position:relative;height:260px;"><canvas id="div-monthly-chart"></canvas></div>
+      </div>
+
+      <!-- 月詳細（クリック時） -->
+      <div class="month-sel-card" id="div-month-detail" style="display:none;">
+        <div class="month-title">
+          <span id="div-month-label">—月の配当銘柄</span>
+          <span class="m-badge" id="div-month-total">—</span>
+          <button onclick="clearDivMonth()" style="margin-left:auto;font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px;">✕ 閉じる</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>銘柄</th>
+              <th style="text-align:center;">種別</th>
+              <th style="text-align:right;">株数</th>
+              <th style="text-align:right;">1回あたり配当/株</th>
+              <th style="text-align:right;">受取額</th>
+              <th style="text-align:right;">年間合計</th>
+              <th style="text-align:center;">確定月</th>
+              <th style="text-align:center;">支払月</th>
+              <th>データ</th>
+            </tr></thead>
+            <tbody id="div-month-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ポートフォリオ -->
+      <div class="bottom-row" style="grid-template-columns:320px minmax(0,1fr);">
+        <div class="card">
+          <div class="card-title">配当ポートフォリオ</div>
+          <div class="donut-wrap" style="width:160px;height:160px;">
+            <canvas id="div-donut-chart"></canvas>
+            <div class="donut-center">
+              <div class="donut-center-val" id="div-donut-total">—</div>
+              <div class="donut-center-label">年間配当</div>
+            </div>
+          </div>
+          <div class="legend-list" id="div-donut-legend" style="margin-top:14px;"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">銘柄別 年間配当ランキング</div>
+          <div class="div-rank-wrap" id="div-rank-wrap" style="height:280px;">
+            <canvas id="div-rank-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 配当銘柄一覧（コード順） -->
+      <div class="table-card" style="margin-bottom:22px;">
+        <div class="table-top">
+          <div class="card-title" style="margin-bottom:0;">配当銘柄一覧（コード順）</div>
+          <span id="div-list-count" style="font-size:12px;color:var(--text3);"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>コード</th>
+              <th>銘柄</th>
+              <th>口座</th>
+              <th style="text-align:right;">株数</th>
+              <th style="text-align:right;">最新株価</th>
+              <th style="text-align:right;">配当/株（年間）</th>
+              <th style="text-align:right;">年間受取（税引前）</th>
+              <th style="text-align:right;">年間受取（税引後）</th>
+              <th style="text-align:right;">配当利回り</th>
+              <th style="text-align:right;">実質配当利回り</th>
+              <th style="text-align:center;">確定月</th>
+              <th style="text-align:center;">中間</th>
+              <th style="text-align:center;">期末</th>
+              <th>データ</th>
+            </tr></thead>
+            <tbody id="div-list-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- /#page-dividend -->
+
+</div><!-- /#dashboard -->
+
+<!-- ══ J-Quants AUTH MODAL ══════════════════════════════════ -->
+<div class="overlay" id="jqauth-overlay">
+  <div class="modal" style="max-width:440px;width:100%;">
+    <div class="modal-title" style="margin-bottom:6px;">J-Quants API キー設定</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.8;">
+      株価取得に J-Quants の API キーが必要です。<br>
+      ① <a href="https://jpx-jquants.com" target="_blank" style="color:var(--blue);">jpx-jquants.com</a> にログイン<br>
+      ② 「マイページ」→「APIキー発行」でキーをコピー<br>
+      ③ 下に貼り付けて「保存」<br>
+      <span style="color:var(--green);font-size:12px;">✓ ブラウザから直接取得（server.py不要）※CORS許可時</span>
+    </div>
+    <div class="form-field">
+      <label class="form-label">API キー</label>
+      <input class="form-input" type="text" id="jqauth-apikey" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off" style="font-family:'DM Mono',monospace;letter-spacing:.04em;">
+    </div>
+    <div id="jqauth-err" class="modal-err" style="display:none;margin-top:10px;"></div>
+    <div class="modal-actions" style="margin-top:18px;">
+      <button class="btn-modal-cancel" onclick="closeJQAuth()">キャンセル</button>
+      <button class="btn-modal-ok" id="btn-jqauth-login" onclick="submitJQAuth()">保存して株価取得</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UPDATE LOG MODAL ════════════════════════════════════ -->
+<div class="overlay" id="update-overlay">
+  <div class="modal" style="max-width:560px;width:100%;">
+    <div class="modal-title" style="margin-bottom:8px;">⟳ JSON作成中</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">fetch_portfolio_data.py を実行しています…</div>
+    <div id="update-log" style="background:#1e2233;border-radius:10px;padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#7dd3fc;height:280px;overflow-y:auto;white-space:pre-wrap;line-height:1.7;"></div>
+    <div id="update-status" style="margin-top:12px;font-size:13px;font-weight:600;min-height:20px;"></div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-modal-cancel" id="btn-update-close" onclick="closeUpdateModal()" disabled>閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HELP MODAL ══════════════════════════════════════════ -->
+<div class="overlay" id="help-overlay">
+  <div class="help-modal">
+    <button class="help-close-btn" onclick="closeHelp()">✕</button>
+    <div class="help-head">
+      <div class="help-title">📋 データ更新ガイド</div>
+      <div class="help-sub">最新データをダッシュボードに反映する手順</div>
+      <div class="help-tabs">
+        <button class="htab active" onclick="switchTab('routine',this)">毎回の更新（3ステップ）</button>
+        <button class="htab"        onclick="switchTab('setup',this)">初回セットアップ</button>
+      </div>
+    </div>
+
+    <!-- 毎回の更新 -->
+    <div class="help-body" id="htab-routine">
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-blue">1</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">楽天証券でCSVをダウンロード <span class="sbadge sb-every">毎回</span></div>
+            <div class="step-desc">楽天証券にログインして「資産状況」ページのCSVダウンロードボタンを押します。</div>
+            <div class="step-box">
+              マイメニュー →「資産状況」→ 右上の<strong>「CSVダウンロード」</strong>をクリック<br>
+              → Downloadsフォルダに <code style="font-family:'DM Mono',monospace;font-size:11px;">assetbalance(all)_日付.csv</code> が保存される
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-green">2</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">Pythonスクリプトを実行 <span class="sbadge sb-every">毎回</span></div>
+            <div class="step-desc">Macの「ターミナル」アプリを開き、以下のコマンドをコピー＆実行します。</div>
+            <div class="code-row">
+              <code id="cmd-run">python3 ~/Downloads/fetch_portfolio_data.py</code>
+              <button class="btn-copy" onclick="copyCmd('cmd-run',this)">コピー</button>
+            </div>
+            <div class="step-tip">💡 「○○銘柄取得成功」と表示されたら完了。<strong>portfolio_data.json</strong> がDownloadsに生成されます（約1〜2分）</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-amber">3</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">CSVを読み込む <span class="sbadge sb-every">毎回</span></div>
+            <div class="step-desc">このページのCSVドロップエリアに、ステップ①のCSVファイルをドラッグ＆ドロップします。</div>
+            <div class="step-box">すでに表示中なら → ヘッダーの「<strong>↩ CSV再読み込み</strong>」で戻る</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-purple">4</div></div>
+          <div class="step-body">
+            <div class="step-title">portfolio_data.json を読み込む <span class="sbadge sb-every">毎回</span></div>
+            <div class="step-desc">ヘッダーの「<strong>＋ yfinance JSON</strong>」ボタンをクリックし、ステップ②で生成したJSONファイルを選択します。</div>
+            <div class="step-box">ヘッダー「<strong>＋ yfinance JSON</strong>」→ portfolio_data.json を選択<br>→ テーブルの配当・利回り・権利落ち日が自動更新</div>
+            <div class="step-tip">💡 ヘッダーに「yf ○○銘柄」と表示されたら完了です</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 初回セットアップ -->
+    <div class="help-body" id="htab-setup" style="display:none;">
+      <div class="steps">
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-blue">1</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">yfinanceをインストール <span class="sbadge sb-once">初回のみ</span></div>
+            <div class="step-desc">Macの「ターミナル」アプリで以下を実行してください。</div>
+            <div class="code-row">
+              <code id="cmd-install">pip3 install yfinance</code>
+              <button class="btn-copy" onclick="copyCmd('cmd-install',this)">コピー</button>
+            </div>
+            <div class="step-tip">💡「Successfully installed yfinance-...」と表示されれば完了</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-green">2</div><div class="step-line"></div></div>
+          <div class="step-body">
+            <div class="step-title">J-Quantsに無料登録 <span class="sbadge sb-once">初回のみ・任意</span></div>
+            <div class="step-desc">JPX公式API（無料）で配当予想・権利確定日を取得できます。未登録の場合は yfinance データのみ使用されます。</div>
+            <div class="step-box">
+              ① <a href="https://jpx-jquants.com" target="_blank" style="color:var(--blue);">jpx-jquants.com</a> にアクセス<br>
+              ② 「無料プランで始める」をクリック<br>
+              ③ メールアドレス・パスワードを登録して完了
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-left"><div class="step-num sn-amber">3</div></div>
+          <div class="step-body">
+            <div class="step-title">スクリプト初回実行でJ-Quants設定 <span class="sbadge sb-once">初回のみ</span></div>
+            <div class="step-desc">Pythonスクリプトを初めて実行するとJ-Quantsのメールアドレスとパスワードを聞かれます。入力するとトークンが自動保存され、次回以降はスキップなしで動きます。</div>
+            <div class="step-box">スクリプト実行 → メール・パスワードを入力 → 自動保存（<code style="font-size:11px;">~/.jquants_config.json</code>）<br>次回以降は入力不要（週1回のみ自動更新）</div>
+            <div class="step-tip">💡 スキップしたい場合はEnterキーを2回押すだけ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-footer">
+      <div class="help-freq">更新頻度の目安：<strong>週1回</strong>（ステップ1〜4を繰り返すだけ）</div>
+      <button class="btn-close-help" onclick="closeHelp()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// 静的DB（フォールバック）
+// ══════════════════════════════════════════════════════════
+const DIVIDEND_DB = {
+  '1305':{div:36,rec:'3/9月'},'1306':{div:34,rec:'3/9月'},'1321':{div:400,rec:'3/9月'},
+  '1329':{div:320,rec:'3/9月'},'1577':{div:420,rec:'3/9月'},'1698':{div:72,rec:'毎四半期'},
+  '2502':{div:87,rec:'12月'},'2503':{div:67,rec:'12月'},'2702':{div:68,rec:'6/12月'},
+  '2802':{div:47,rec:'3/9月'},'2914':{div:194,rec:'3/9月'},'3382':{div:107,rec:'2月'},
+  '3407':{div:14,rec:'3/9月'},'4063':{div:320,rec:'3/9月'},'4452':{div:150,rec:'3/9月'},
+  '4502':{div:200,rec:'3/9月'},'4503':{div:185,rec:'3/9月'},'4523':{div:125,rec:'3/9月'},
+  '4568':{div:157,rec:'3/9月'},'4661':{div:9,rec:'3/9月'},'5020':{div:55,rec:'12月'},
+  '5108':{div:190,rec:'12月'},'5401':{div:210,rec:'3/9月'},'5713':{div:170,rec:'3/9月'},
+  '6301':{div:85,rec:'3/9月'},'6326':{div:165,rec:'10月'},'6501':{div:45,rec:'3/9月'},
+  '6758':{div:40,rec:'3/9月'},'6861':{div:130,rec:'12月'},'6902':{div:190,rec:'3/9月'},
+  '6954':{div:120,rec:'3/9月'},'6971':{div:150,rec:'3/9月'},'7011':{div:60,rec:'3/9月'},
+  '7203':{div:75,rec:'3/9月'},'7267':{div:68,rec:'3/9月'},'7751':{div:120,rec:'12月'},
+  '7974':{div:160,rec:'3/9月'},'8001':{div:88,rec:'3/9月'},'8002':{div:90,rec:'3/9月'},
+  '8031':{div:105,rec:'3/9月'},'8058':{div:110,rec:'3/9月'},'8267':{div:36,rec:'2/8月'},
+  '8306':{div:41,rec:'3/9月'},'8316':{div:270,rec:'3/9月'},'8411':{div:100,rec:'3/9月'},
+  '8473':{div:150,rec:'3/9月'},'8591':{div:86,rec:'3/9月'},'8601':{div:115,rec:'3/9月'},
+  '8766':{div:120,rec:'3/9月'},'8801':{div:55,rec:'3/9月'},'9020':{div:90,rec:'3/9月'},
+  '9021':{div:130,rec:'3/9月'},'9101':{div:200,rec:'3/9月'},'9104':{div:350,rec:'3/9月'},
+  '9107':{div:250,rec:'3/9月'},'9432':{div:60,rec:'3/9月'},'9433':{div:145,rec:'3/9月'},
+  '9434':{div:86,rec:'3/9月'},'9613':{div:185,rec:'3月'},'9984':{div:22,rec:'3/9月'},
+};
+
+const YUTAI_DB = {
+  '2702':{name:'日本マクドナルドHD',tiers:[{min:100,desc:'食事券 6枚',timing:'6/12月'}]},
+  '2914':{name:'日本たばこ産業（JT）',tiers:[{min:100,desc:'自社製品詰め合わせ 2,500円相当',timing:'12月'},{min:200,desc:'3,500円相当',timing:'12月'},{min:1000,desc:'6,000円相当',timing:'12月'}]},
+  '3382':{name:'セブン&アイHD',tiers:[{min:100,desc:'株主優待券 3,000円分',timing:'2月'},{min:200,desc:'5,000円分',timing:'2月'},{min:1000,desc:'10,000円分',timing:'2月'}]},
+  '4452':{name:'花王',tiers:[{min:100,desc:'自社製品詰め合わせ',timing:'12月'}]},
+  '4661':{name:'オリエンタルランド',tiers:[{min:100,desc:'1デー・パスポート 1枚',timing:'3/9月'},{min:800,desc:'1デー・パスポート 2枚',timing:'3/9月'}]},
+  '7751':{name:'キヤノン',tiers:[{min:100,desc:'自社製品（卓上カレンダー等）',timing:'12月'}]},
+  '7832':{name:'バンダイナムコHD',tiers:[{min:100,desc:'優待品 3,000円相当',timing:'3月'}]},
+  '7974':{name:'任天堂',tiers:[{min:100,desc:'オリジナルグッズ（カレンダー等）',timing:'3月'}]},
+  '8267':{name:'イオン',tiers:[{min:100,desc:'キャッシュバック 3%',timing:'2/8月'},{min:500,desc:'4%',timing:'2/8月'},{min:1000,desc:'5%',timing:'2/8月'},{min:3000,desc:'7%',timing:'2/8月'}]},
+  '8591':{name:'オリックス',tiers:[{min:100,desc:'カタログギフト 3,000〜5,000円相当',timing:'3月'}]},
+  '9020':{name:'JR東日本',tiers:[{min:100,desc:'運賃40%割引券10枚＋JRE POINT 100pt',timing:'3/9月'},{min:200,desc:'割引券20枚＋200pt',timing:'3/9月'}]},
+  '9022':{name:'JR東海',tiers:[{min:100,desc:'新幹線グリーン車クーポン 2枚',timing:'3/9月'}]},
+  '9433':{name:'KDDI',tiers:[{min:100,desc:'カタログギフト 3,000〜5,000円相当',timing:'3月'}]},
+  '9434':{name:'ソフトバンク',tiers:[{min:100,desc:'PayPayポイント 200pt',timing:'3月'}]},
+  '9861':{name:'吉野家HD',tiers:[{min:100,desc:'食事券 1,200円分',timing:'2/8月'},{min:200,desc:'2,400円分',timing:'2/8月'}]},
+  '2503':{name:'キリンHD',tiers:[{min:100,desc:'自社グループ製品詰め合わせ',timing:'12月'}]},
+  '2502':{name:'アサヒグループHD',tiers:[{min:100,desc:'自社グループ製品詰め合わせ',timing:'12月'}]},
+};
+
+// ══════════════════════════════════════════════════════════
+// 状態
+// ══════════════════════════════════════════════════════════
+let allStocks=[], currentFilter='all', sortKey='val', sortAsc=false, charts={};
+let colVisible={qty:false,avg:false,curprice:true,divamt:true,divnet:true,yield:true,exdate:true,yutai:true};
+
+const PALETTE=['#3b7bf6','#0fad74','#e09500','#e8404a','#7c5cec','#0ea5b0','#f97316','#db2777'];
+const typeColor={};let ci=0;
+function getColor(t){if(!typeColor[t]){typeColor[t]=PALETTE[ci%PALETTE.length];ci++;}return typeColor[t];}
+
+// ── 数値変換 ──
+function toNum(s){if(s==null)return 0;const v=String(s).trim();if(!v||v==='-'||v==='未取得'||v==='NaN')return 0;return parseInt(v.replace(/[+＋,，\s円]/g,''))||0;}
+function toFloat(s){if(s==null)return 0;const v=String(s).trim();if(!v||v==='-'||v==='未取得'||v==='NaN')return 0;return parseFloat(v.replace(/[+＋,，\s%％円]/g,''))||0;}
+function fmt(n){const a=Math.abs(n);if(a>=1e8)return(n/1e8).toFixed(2)+'億円';if(a>=1e4)return Math.round(n/1e4)+'万円';return n.toLocaleString()+'円';}
+function fmtSign(n){return(n>=0?'+':'')+fmt(n);}
+function fmtPct(n){return(n>=0?'+':'')+n.toFixed(2)+'%';}
+function fmtDate(v){if(!v)return'—';const s=typeof v==='number'?new Date(v*1000).toISOString().slice(0,10):String(v).slice(0,10);return s;}
+
+// ══════════════════════════════════════════════════════════
+// CSVパーサー
+// ══════════════════════════════════════════════════════════
+function parseCSV(text){
+  const rows=Papa.parse(text,{skipEmptyLines:false}).data;
+  let totalAsset=0,dailyChange=0,monthlyChange=0,evalPL=0,realizedPL=0,dividend=0;
+  const momByType={};
+  let sumVal=1,sumDaily=2,sumMonthly=4,sumPL=6,sumRealized=9,sumDiv=10;
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    rows[i].forEach((v,j)=>{const s=(v||'').trim();
+      if(s==='時価評価額[円]')sumVal=j;if(s==='前日比[円]')sumDaily=j;
+      if(s==='前月比[円]')sumMonthly=j;if(s==='評価損益[円]')sumPL=j;
+      if(s==='実現損益[円]')sumRealized=j;if(s.includes('配当')&&s.includes('円貨'))sumDiv=j;
+    });
+  }
+  const SCATS=['国内株式','米国株式','中国株式','アセアン株式','投資信託','楽ラップ','金・プラチナ','国内債券','外国債券','楽天・マネーファンド','外貨建MMF'];
+  for(const row of rows){
+    const key=(row[0]||'').trim();
+    if(key==='資産合計'){totalAsset=toNum(row[sumVal]);dailyChange=toNum(row[sumDaily]);monthlyChange=toNum(row[sumMonthly]);evalPL=toNum(row[sumPL]);realizedPL=toNum(row[sumRealized]);dividend=toNum(row[sumDiv]);}
+    if(SCATS.includes(key)&&toNum(row[sumMonthly])!==0)momByType[key]=toNum(row[sumMonthly]);
+  }
+  let hIdx=-1,ci={};
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i];
+    if(row.some(c=>(c||'').trim()==='種別')&&row.some(c=>(c||'').trim()==='銘柄')&&row.some(c=>(c||'').trim()==='時価評価額[円]')){
+      hIdx=i;row.forEach((c,j)=>{const n=(c||'').trim();if(n)ci[n]=j;});break;
+    }
+  }
+  if(hIdx<0)throw new Error('ヘッダー行が見つかりません。');
+  const req=['種別','銘柄','時価評価額[円]','評価損益[円]','評価損益[％]'];
+  const miss=req.filter(c=>ci[c]===undefined);
+  if(miss.length)throw new Error('列が見つかりません: '+miss.join(', '));
+  const iType=ci['種別'],iName=ci['銘柄'];
+  const iCode=ci['銘柄コード']??ci['銘柄コード・ティッカー']??ci['コード']??-1;
+  const iAcct=ci['口座']??3,iQty=ci['保有数量']??ci['数量']??-1;
+  const iAvg=ci['平均取得単価[円]']??ci['平均取得価額']??ci['平均購入単価[円]']??-1;
+  const iCur=ci['現在値[円]']??ci['現在値']??ci['参考単価[円]']??-1;
+  const iVal=ci['時価評価額[円]'],iPL=ci['評価損益[円]'],iPLp=ci['評価損益[％]'];
+  const SKIP=new Set(['楽天・マネーファンド','外貨建MMF','外貨預り金','預り金','預り金合計','','種別']);
+  const STOP=['■','参考為替','楽天銀行'];
+  const stocks=[];
+  for(let i=hIdx+1;i<rows.length;i++){
+    const row=rows[i];const type=(row[iType]||'').trim();
+    if(!type)continue;if(STOP.some(k=>type.startsWith(k)))break;if(SKIP.has(type))continue;
+    const name=(row[iName]||'').trim();
+    if(!name||name==='現金等'||name==='米ドル'||name==='NaN')continue;
+    const val=toNum(row[iVal]);if(val<=0)continue;
+    let code=iCode>=0?(row[iCode]||'').trim().replace(/['"]/g,''):'';
+    // 4桁数字（例:7203）または 数字+英字（例:250A）のみ有効
+    if(!/^\d{4}$/.test(code)&&!/^\d{3,4}[A-Za-z]$/.test(code))code='';
+    const qty=iQty>=0?toNum(row[iQty]):0;
+    const avgPrice=iAvg>=0?toFloat(row[iAvg]):0;
+    const curPrice=iCur>=0?toFloat(row[iCur]):(qty>0?val/qty:0);
+    const pl=toNum(row[iPL]),plp=toFloat(row[iPLp]);
+    let divPerShare=0,divYield=0,exDate='',payDate='',divStatus='',divSource='';
+    if(code&&DIVIDEND_DB[code]){
+      divPerShare=DIVIDEND_DB[code].div;exDate=DIVIDEND_DB[code].rec;
+      const p=curPrice>0?curPrice:(qty>0?val/qty:0);
+      if(p>0)divYield=divPerShare/p*100;divSource='static';
+    }
+    stocks.push({type,code,name,acct:(row[iAcct]||'-').trim(),qty,avgPrice,curPrice,val,pl,plp,divPerShare,divYield,exDate,payDate,divStatus,divSource});
+  }
+  return{totalAsset,dailyChange,monthlyChange,evalPL,realizedPL,dividend,stocks,momByType};
+}
+
+// ══════════════════════════════════════════════════════════
+// レンダリング
+// ══════════════════════════════════════════════════════════
+function render(data){
+  const{totalAsset,dailyChange,monthlyChange,evalPL,realizedPL,dividend,stocks,momByType}=data;
+  allStocks=stocks;
+  document.getElementById('header-date').textContent=new Date().toLocaleDateString('ja-JP');
+  document.getElementById('m-total').textContent=fmt(totalAsset);
+  const dc=document.getElementById('m-daily');
+  dc.textContent='前日比 '+fmtSign(dailyChange);dc.className='metric-sub '+(dailyChange>=0?'pos':'neg');
+  const pe=document.getElementById('m-pl');pe.textContent=fmtSign(evalPL);pe.className='metric-value '+(evalPL>=0?'pos':'neg');
+  const mv=document.getElementById('m-monthly');mv.textContent=fmtSign(monthlyChange);mv.className=monthlyChange>=0?'pos':'neg';
+  const rl=document.getElementById('m-realized');rl.textContent=fmtSign(realizedPL);rl.className='metric-value '+(realizedPL>=0?'pos':'neg');
+  document.getElementById('m-div').textContent=fmt(dividend);
+  updateEstDiv();
+
+  const groups={};
+  for(const s of stocks){if(!groups[s.type])groups[s.type]={val:0,pl:0};groups[s.type].val+=s.val;groups[s.type].pl+=s.pl;}
+  const gkeys=Object.keys(groups).sort((a,b)=>groups[b].val-groups[a].val);
+  const total=gkeys.reduce((s,k)=>s+groups[k].val,0);
+
+  const tabBar=document.getElementById('tab-bar');
+  tabBar.innerHTML=`<button class="tab active" onclick="filterTable('all',this)">すべて</button>`;
+  gkeys.forEach(t=>{tabBar.innerHTML+=`<button class="tab" onclick="filterTable('${t}',this)">${t}</button>`;});
+
+  document.getElementById('donut-total').textContent=Math.round(total/1e4)+'万';
+  document.getElementById('donut-legend').innerHTML=gkeys.map(k=>`
+    <div class="legend-item">
+      <div class="legend-l"><div class="legend-dot" style="background:${getColor(k)}"></div><span class="legend-name">${k}</span></div>
+      <span class="legend-val">${(groups[k].val/total*100).toFixed(1)}%</span>
+    </div>`).join('');
+
+  dc_(charts,'donut',()=>new Chart(document.getElementById('donut-chart'),{
+    type:'doughnut',
+    data:{labels:gkeys,datasets:[{data:gkeys.map(k=>groups[k].val),backgroundColor:gkeys.map(k=>getColor(k)),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'70%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${Math.round(c.raw/1e4)}万円 (${(c.raw/total*100).toFixed(1)}%)`}}}}
+  }));
+
+  dc_(charts,'bar',()=>new Chart(document.getElementById('bar-chart'),{
+    type:'bar',
+    data:{labels:gkeys,datasets:[{label:'評価損益',data:gkeys.map(k=>groups[k].pl),backgroundColor:gkeys.map(k=>getColor(k)+'cc'),borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw>=0?'+':''}${Math.round(c.raw/1e4)}万円`}}},scales:{y:{ticks:{callback:v=>`${Math.round(v/1e4)}万`,color:'#9ca3b4',font:{size:11}},grid:{color:'#f0f1f5'}},x:{ticks:{color:'#6b7280',font:{size:12}},grid:{display:false}}}}
+  }));
+
+  const momKeys=Object.keys(momByType).filter(k=>momByType[k]!==0);
+  const momVals=momKeys.map(k=>momByType[k]);
+  dc_(charts,'mom');
+  if(momKeys.length){
+    charts.mom=new Chart(document.getElementById('mom-chart'),{
+      type:'bar',
+      data:{labels:momKeys,datasets:[{data:momVals,backgroundColor:momVals.map(v=>v>=0?'rgba(15,173,116,0.25)':'rgba(232,64,74,0.25)'),borderColor:momVals.map(v=>v>=0?'#0fad74':'#e8404a'),borderWidth:1.5,borderRadius:6,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`前月比: ${c.raw>=0?'+':''}${c.raw.toLocaleString()}円`}}},scales:{y:{ticks:{callback:v=>`${Math.round(v/1e4)}万`,color:'#9ca3b4',font:{size:11}},grid:{color:'#f0f1f5'}},x:{ticks:{color:'#6b7280',font:{size:12}},grid:{display:false}}}}
+    });
+  }
+
+  const acctMap={};
+  for(const s of stocks){
+    let k=s.acct;
+    if(k.includes('NISA成長'))k='NISA成長投資枠';
+    else if(k.includes('つみたて')||k.includes('積立'))k='NISAつみたて';
+    else if(k.includes('旧NISA'))k='旧NISA';
+    else if(k==='特定')k='特定';
+    else if(k==='-'||k==='')k='その他';
+    acctMap[k]=(acctMap[k]||0)+s.val;
+  }
+  const akeys=Object.keys(acctMap).sort((a,b)=>acctMap[b]-acctMap[a]);
+  const ac={'特定':'#3b7bf6','NISA成長投資枠':'#0fad74','NISAつみたて':'#7c5cec','旧NISA':'#e09500','その他':'#9ca3b4'};
+  dc_(charts,'acct',()=>new Chart(document.getElementById('acct-chart'),{
+    type:'bar',
+    data:{labels:akeys,datasets:[{data:akeys.map(k=>acctMap[k]),backgroundColor:akeys.map(k=>ac[k]||'#9ca3b4'),borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${Math.round(c.raw/1e4)}万円`}}},scales:{y:{ticks:{callback:v=>`${Math.round(v/1e4)}万`,color:'#9ca3b4',font:{size:11}},grid:{color:'#f0f1f5'}},x:{ticks:{color:'#6b7280',font:{size:12}},grid:{display:false}}}}
+  }));
+
+  renderYutai(stocks);currentFilter='all';renderTable();applyColVis();
+  document.getElementById('drop-zone').classList.add('hidden');
+  document.getElementById('dashboard').classList.add('visible');
+  document.getElementById('page-nav').classList.add('visible');
+  switchPage('portfolio');
+  fetchPrices(true); // CSV読み込み後に株価を自動取得（サイレント）
+}
+
+function dc_(ch,k,fn){if(ch[k]){ch[k].destroy();delete ch[k];}if(fn)ch[k]=fn();}
+
+function updateEstDiv(){
+  const est=allStocks.reduce((s,x)=>x.divPerShare>0&&x.qty>0?s+x.divPerShare*x.qty:s,0);
+  const jq=allStocks.filter(x=>x.divSource==='jq').length;
+  const yf=allStocks.filter(x=>x.divSource==='yf').length;
+  const db=allStocks.filter(x=>x.divSource==='static').length;
+  document.getElementById('m-estdiv').textContent=est>0?fmt(est):'—';
+  const p=[];if(jq)p.push(`JQ:${jq}`);if(yf)p.push(`yf:${yf}`);if(db)p.push(`参考:${db}`);
+  document.getElementById('m-estdiv-sub').textContent=(p.length?p.join(' '):'未照合')+' 試算';
+}
+
+function renderYutai(stocks){
+  const grid=document.getElementById('yutai-grid'),sec=document.getElementById('yutai-section'),cards=[];
+  for(const s of stocks){
+    if(!s.code||!YUTAI_DB[s.code])continue;
+    const db=YUTAI_DB[s.code];
+    const tiers=db.tiers.filter(t=>s.qty===0||s.qty>=t.min);
+    if(!tiers.length)continue;
+    cards.push({s,db,tier:tiers[tiers.length-1]});
+  }
+  if(!cards.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  grid.innerHTML=cards.map(({s,db,tier})=>`
+    <div class="yutai-card">
+      <div class="yutai-name">${db.name}</div>
+      <div class="yutai-code">${s.code} · ${s.acct}</div>
+      <div class="yutai-holding">${s.qty>0?`保有 <strong>${s.qty.toLocaleString()}株</strong>（${tier.min.toLocaleString()}株〜 ✓）`:'保有数量 未取得'}</div>
+      <div class="yutai-desc">${tier.desc}</div>
+      <div class="yutai-timing">📅 権利確定: ${tier.timing}</div>
+    </div>`).join('');
+}
+
+function srcBadge(s){
+  if(s.divSource==='jq')return`<span class="badge b-jq" style="font-size:9px;">JQ${s.divStatus?'/'+s.divStatus:''}</span>`;
+  if(s.divSource==='yf')return`<span class="badge b-yf" style="font-size:9px;">yf</span>`;
+  if(s.divSource==='static')return`<span class="badge b-ref" style="font-size:9px;">参考</span>`;
+  return'';
+}
+
+function renderTable(){
+  // divNet を都度計算（口座別税率）
+  const taxRate=s=>s.acct==='特定'?0.20315:0;
+  for(const s of allStocks){
+    s.divNet=s.divPerShare>0&&s.qty>0?s.divPerShare*s.qty*(1-taxRate(s)):0;
+  }
+  let rows=currentFilter==='all'?[...allStocks]:allStocks.filter(s=>s.type===currentFilter);
+  rows.sort((a,b)=>{
+    if(sortKey==='code'){
+      const ca=parseInt(a.code)||99999, cb=parseInt(b.code)||99999;
+      return sortAsc?ca-cb:cb-ca;
+    }
+    return sortAsc?a[sortKey]-b[sortKey]:b[sortKey]-a[sortKey];
+  });
+  document.getElementById('stock-tbody').innerHTML=rows.map(s=>{
+    let bc='b-other',bl=s.acct;
+    if(s.acct.includes('NISA成長')){bc='b-nisa';bl='NISA成長';}
+    else if(s.acct.includes('つみたて')||s.acct.includes('積立')){bc='b-tsumitate';bl='つみたて';}
+    else if(s.acct.includes('旧NISA')){bc='b-old';bl='旧NISA';}
+    else if(s.acct==='特定'){bc='b-toku';bl='特定';}
+    const hasY=s.code&&YUTAI_DB[s.code]&&(s.qty===0||YUTAI_DB[s.code].tiers.some(t=>s.qty>=t.min));
+    return`<tr>
+      <td style="color:var(--text3);font-size:12px;">${s.type}</td>
+      <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${s.name}">${s.name}</td>
+      <td><span class="badge ${bc}">${bl}</span></td>
+      <td class="mono col-qty" style="display:none;text-align:right;">${s.qty>0?s.qty.toLocaleString()+'株':'—'}</td>
+      <td class="mono col-avg" style="display:none;text-align:right;${(()=>{if(s.avgPrice>0&&s.curPrice>0){if(s.curPrice>s.avgPrice)return'color:var(--green);';if(s.curPrice<s.avgPrice)return'color:var(--red);';}return'';})()}">${s.avgPrice>0?s.avgPrice.toLocaleString()+'円':'—'}</td>
+      <td class="mono col-curprice" style="text-align:right;">${s.curPrice>0?s.curPrice.toLocaleString()+'円':'—'}</td>
+      <td class="mono" style="text-align:right;">${Math.round(s.val/1e4)}万円</td>
+      <td class="mono ${s.pl>=0?'pos':'neg'}" style="text-align:right;">${fmtSign(s.pl)}</td>
+      <td class="mono ${s.plp>=0?'pos':'neg'}" style="text-align:right;">${fmtPct(s.plp)}</td>
+      <td class="mono col-divamt" style="text-align:right;">${s.divPerShare>0?s.divPerShare.toLocaleString()+'円 '+srcBadge(s):'—'}</td>
+      <td class="mono col-divnet" style="text-align:right;">${s.divNet>0?`<span style="color:var(--green);font-weight:700;${s.acct!=='特定'?'text-decoration:underline;':''}">${Math.round(s.divNet).toLocaleString()}円</span>`:'—'}</td>
+      <td class="mono col-yield" style="text-align:right;">${s.divYield>0?`<span class="c-blue">${s.divYield.toFixed(2)}%</span>`:'—'}</td>
+      <td class="col-exdate" style="text-align:center;font-size:12px;color:var(--text2);">${s.exDate||'—'}</td>
+      <td class="col-yutai" style="text-align:center;">${hasY?'<span class="badge b-yutai">優待◎</span>':'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable(t,btn){currentFilter=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderTable();applyColVis();}
+function sortTable(k){sortAsc=sortKey===k?!sortAsc:(k==='code');sortKey=k;renderTable();applyColVis();}
+function toggleCol(k){colVisible[k]=!colVisible[k];document.getElementById('tog-'+k).classList.toggle('on',colVisible[k]);applyColVis();}
+function applyColVis(){Object.entries(colVisible).forEach(([k,v])=>{document.querySelectorAll('.col-'+k).forEach(el=>{el.style.display=v?'table-cell':'none';});});}
+
+// ── JSON手動読み込み ──
+function handleJsonFile(file){
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const json=JSON.parse(e.target.result);
+      if(!json.stocks)throw new Error('stocksフィールドがありません');
+      const applied=applyJsonData(json);
+      saveJsonToStorage(json);
+      const chip=document.getElementById('yf-chip');
+      const gen=json.generated?new Date(json.generated).toLocaleDateString('ja-JP'):'';
+      const jqN=allStocks.filter(s=>s.divSource==='jq').length;
+      const yfN=allStocks.filter(s=>s.divSource==='yf').length;
+      const parts=[];if(jqN)parts.push(`JQ:${jqN}`);if(yfN)parts.push(`yf:${yfN}`);
+      chip.style.display='block';chip.textContent=`${parts.join(' ')} (${gen})`;
+    }catch(err){alert('JSON読み込みエラー: '+err.message);}
+  };
+  r.readAsText(file,'utf-8');
+}
+
+// ── リセット ──
+function resetDashboard(){
+  document.getElementById('dashboard').classList.remove('visible');
+  document.getElementById('page-nav').classList.remove('visible');
+  document.getElementById('drop-zone').classList.remove('hidden');
+  document.getElementById('save-indicator').style.display='none';
+  document.getElementById('file-input').value='';showError('');
+  allStocks=[];
+  // 保存バナーを再表示（保存データがあれば）
+  const hasCsv=localStorage.getItem(LS_CSV);
+  document.getElementById('restore-banner').style.display=hasCsv?'':'none';
+  document.getElementById('drop-box').style.display=hasCsv?'none':'';
+  const c=document.getElementById('yf-chip');c.style.display='none';c.textContent='';
+}
+function showError(m){const e=document.getElementById('upload-error');if(m){e.textContent=m;e.classList.add('visible');}else{e.textContent='';e.classList.remove('visible');}}
+
+// ── CSV読み込み ──
+function handleFile(file){
+  if(!file)return;
+  // iOSではMIMEタイプで判定（拡張子が取れない場合あり）
+  const name=file.name||'';
+  const isCSV=name.toLowerCase().endsWith('.csv')||
+               file.type==='text/csv'||file.type==='text/plain'||file.type==='application/csv';
+  if(name&&!isCSV){showError('CSVファイル（.csv）を選択してください。');return;}
+  showError('');
+  // 読み込み中表示
+  const btn=document.querySelector('label.btn-primary');
+  if(btn)btn.style.opacity='0.6';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    if(btn)btn.style.opacity='';
+    try{
+      const buf=e.target.result,bytes=new Uint8Array(buf);
+      let isSJIS=false;
+      for(let i=0;i<Math.min(bytes.length,2000);i++){const b=bytes[i];if((b>=0x81&&b<=0x9F)||(b>=0xE0&&b<=0xFC)){isSJIS=true;break;}}
+      let text;
+      try{text=new TextDecoder(isSJIS?'shift_jis':'utf-8').decode(buf);}
+      catch(_){text=new TextDecoder('utf-8').decode(buf);}
+      // PapaParse未ロード対策
+      if(typeof Papa==='undefined'){
+        const msg='ライブラリが読み込めませんでした。インターネット接続を確認してページを再読み込みしてください。';
+        showError(msg);alert(msg);return;
+      }
+      const data=parseCSV(text);
+      if(!data.stocks.length){
+        const msg='銘柄データが見つかりませんでした。楽天証券の「資産状況CSV」をお使いください。';
+        showError(msg);return;
+      }
+      render(data);
+      saveCsvToStorage(text, file.name||'portfolio.csv');
+      tryFetchJsonFromServer();
+    }catch(err){
+      if(btn)btn.style.opacity='';
+      const msg='読み込みエラー: '+err.message;
+      showError(msg);
+      // iOSでエラーが見えにくい場合のフォールバック
+      console.error(err);
+      alert(msg);
+    }
+  };
+  reader.onerror=()=>{
+    if(btn)btn.style.opacity='';
+    const msg='ファイルを読み込めませんでした。ファイルにアクセス権限があるか確認してください。';
+    showError(msg);alert(msg);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── ファイル選択後に同じファイルを再選択できるようにリセット ──
+function resetFileInput(){
+  const fi=document.getElementById('file-input');
+  if(fi)fi.value='';
+}
+
+// ── J-Quants ブラウザ直接取得（server.py不要） ──
+async function fetchPricesDirect(apiKey){
+  const JQ_V2 = 'https://api.jquants.com/v2';
+  for(let daysBack=1;daysBack<=7;daysBack++){
+    const dt=new Date();
+    dt.setDate(dt.getDate()-daysBack);
+    const day=dt.getDay();
+    if(day===0||day===6)continue; // 土日スキップ
+    const y=dt.getFullYear();
+    const m=String(dt.getMonth()+1).padStart(2,'0');
+    const d=String(dt.getDate()).padStart(2,'0');
+    try{
+      const r=await fetch(
+        `${JQ_V2}/prices/daily_quotes?date=${y}${m}${d}`,
+        {headers:{'Authorization':`Bearer ${apiKey}`},signal:AbortSignal.timeout(15000)}
+      );
+      if(r.status===401)return{error:'unauthorized'};
+      if(!r.ok)continue;
+      const data=await r.json();
+      const quotes=data.daily_quotes||[];
+      if(!quotes.length)continue;
+      const prices={};
+      for(const q of quotes){
+        const code5=String(q.Code||'');
+        const close=q.Close;
+        if(code5&&close!=null)prices[code5.slice(0,-1)]=Math.round(close*10)/10;
+      }
+      return{prices,date:`${y}/${m}/${d}`};
+    }catch(e){
+      if(e instanceof TypeError)return{error:'cors'}; // CORS blocked
+      continue;
+    }
+  }
+  return{prices:{},date:null};
+}
+
+async function fetchPrices(silent=false){
+  const btn=document.getElementById('btn-fetch-prices');
+  const chip=document.getElementById('price-chip');
+  if(!silent){btn.disabled=true;btn.textContent='取得中...';}
+  try{
+    let data=null;
+
+    // ① ブラウザから直接 J-Quants v2 を試みる（server.py不要）
+    const savedKey=localStorage.getItem(LS_APIKEY);
+    if(savedKey){
+      const res=await fetchPricesDirect(savedKey);
+      if(res.error==='unauthorized'){
+        // キーが無効 → 削除して認証モーダルへ
+        localStorage.removeItem(LS_APIKEY);
+        openJQAuth();
+        return;
+      }
+      if(!res.error&&res.prices){
+        data=res; // 直接取得成功
+      }
+      // CORS エラーの場合は server.py フォールバックへ
+    }
+
+    // ② server.py 経由フォールバック
+    if(!data){
+      try{
+        const r=await fetch('/api/prices',{signal:AbortSignal.timeout(12000)});
+        if(r.status===401){
+          // server.py 未認証 → 認証モーダル（server.py 経由で認証）
+          if(!savedKey)openJQAuth();
+          return;
+        }
+        if(r.ok){
+          data=await r.json();
+        }else if(!silent){
+          const d=await r.json().catch(()=>({}));
+          alert(d.error||`株価取得失敗 (${r.status})`);
+          return;
+        }
+      }catch(e){
+        // server.py も未起動 → APIキー未設定なら認証モーダル
+        if(!silent&&!savedKey){openJQAuth();return;}
+        if(!silent&&!data){
+          alert('株価取得に失敗しました。\n\n【方法①】APIキーを設定してください（📈 株価取得ボタン）\n【方法②】server.py を起動してください:\npython3 ~/Downloads/server.py');
+        }
+        return;
+      }
+    }
+
+    if(!data)return;
+    const prices=data.prices||{};
+    let updated=0;
+    for(const s of allStocks){
+      if(!s.code||prices[s.code]==null)continue;
+      s.curPrice=prices[s.code];
+      if(s.divPerShare>0&&s.curPrice>0)s.divYield=s.divPerShare/s.curPrice*100;
+      updated++;
+    }
+    if(updated>0){
+      updateEstDiv();renderTable();applyColVis();
+      chip.style.display='block';
+      chip.textContent=`📈 株価 ${updated}銘柄 (${data.date||'—'})`;
+    }
+  }catch(e){
+    // 予期しないエラーはサイレント
+  }finally{
+    if(!silent){btn.disabled=false;btn.textContent='📈 株価取得';}
+  }
+}
+
+// ── J-Quants 認証モーダル ──
+function openJQAuth(){
+  document.getElementById('jqauth-overlay').classList.add('visible');
+  document.getElementById('jqauth-err').style.display='none';
+  setTimeout(()=>document.getElementById('jqauth-apikey').focus(),100);
+}
+function closeJQAuth(){
+  document.getElementById('jqauth-overlay').classList.remove('visible');
+}
+async function submitJQAuth(){
+  const apiKey=document.getElementById('jqauth-apikey').value.trim();
+  const err   =document.getElementById('jqauth-err');
+  const btn   =document.getElementById('btn-jqauth-login');
+  if(!apiKey){err.textContent='API キーを入力してください';err.style.display='block';return;}
+  btn.disabled=true;btn.textContent='確認中...';err.style.display='none';
+  try{
+    // ① ブラウザから直接 J-Quants v2 で検証（server.py不要）
+    const res=await fetchPricesDirect(apiKey);
+    if(res.error==='unauthorized'){
+      err.textContent='APIキーが無効です。J-Quantsポータルで確認してください。';
+      err.style.display='block';
+      return;
+    }
+    if(!res.error){
+      // 直接検証成功 → localStorageに保存
+      localStorage.setItem(LS_APIKEY,apiKey);
+      closeJQAuth();
+      fetchPrices(false);
+      return;
+    }
+    // CORS エラー → server.py 経由で認証を試みる
+    try{
+      const r=await fetch('/api/auth',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({apiKey})
+      });
+      const d=await r.json();
+      if(!r.ok){err.textContent=d.error||'APIキーが無効です';err.style.display='block';return;}
+      // server.py 経由で保存成功 → localStorageにも保存
+      localStorage.setItem(LS_APIKEY,apiKey);
+      closeJQAuth();
+      fetchPrices(false);
+    }catch(e2){
+      // server.py も未起動 → 検証なしで保存（オフライン環境）
+      localStorage.setItem(LS_APIKEY,apiKey);
+      closeJQAuth();
+      fetchPrices(false);
+    }
+  }catch(e){
+    err.textContent='エラーが発生しました: '+e.message;
+    err.style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='保存して株価取得';
+  }
+}
+
+// ── JSON更新（server.py 経由） ──
+function applyJsonData(json){
+  if(!json||!json.stocks)return 0;
+  let applied=0;
+  for(const s of allStocks){
+    if(!s.code||!json.stocks[s.code])continue;
+    const d=json.stocks[s.code];
+    if(d.error)continue;
+    if(d.divPerShare!=null)s.divPerShare=d.divPerShare;
+    if(d.divYield!=null)s.divYield=d.divYield;
+    if(d.exDivDate!=null)s.exDate=d.exDivDate;
+    if(d.payDate!=null)s.payDate=d.payDate;
+    if(d.price!=null&&s.curPrice===0)s.curPrice=d.price;
+    if(d.divPayments)s.divPayments=d.divPayments;
+    s.divStatus='';s.divSource=d.source||'yf';applied++;
+  }
+  if(applied>0){updateEstDiv();renderTable();applyColVis();}
+  return applied;
+}
+
+function updateJSON(){
+  const btn=document.getElementById('btn-update-json');
+  const log=document.getElementById('update-log');
+  const status=document.getElementById('update-status');
+  const closeBtn=document.getElementById('btn-update-close');
+  document.getElementById('update-overlay').classList.add('visible');
+  log.textContent='';status.textContent='';
+  closeBtn.disabled=true;
+  btn.disabled=true;btn.textContent='作成中...';
+
+  const addLine=line=>{
+    log.textContent+=(log.textContent?'\n':'')+line;
+    log.scrollTop=log.scrollHeight;
+  };
+
+  let es;
+  try{
+    es=new EventSource('/api/update');
+  }catch(e){
+    addLine('⚠ server.py が起動していません。');
+    addLine('ターミナルで: python3 ~/Downloads/server.py');
+    status.textContent='サーバーが必要です';status.style.color='var(--red)';
+    closeBtn.disabled=false;btn.disabled=false;btn.textContent='⟳ JSON更新';
+    return;
+  }
+
+  es.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.line!==undefined)addLine(d.line);
+    if(d.status==='done'){
+      es.close();
+      status.innerHTML='✓ <strong>portfolio_data.json</strong> が作成されました。<br>「＋ JSON手動」ボタンで読み込んでください。';
+      status.style.color='var(--green)';
+      closeBtn.disabled=false;btn.disabled=false;btn.textContent='⟳ JSON作成';
+    }else if(d.status==='error'){
+      es.close();
+      status.textContent='エラーが発生しました。ログを確認してください。';status.style.color='var(--red)';
+      closeBtn.disabled=false;btn.disabled=false;btn.textContent='⟳ JSON作成';
+    }
+  };
+  es.onerror=()=>{
+    es.close();
+    if(!log.textContent){
+      addLine('⚠ server.py が起動していません。');
+      addLine('ターミナルで: python3 ~/Downloads/server.py');
+    }
+    status.textContent='接続失敗';status.style.color='var(--red)';
+    closeBtn.disabled=false;btn.disabled=false;btn.textContent='⟳ JSON作成';
+  };
+}
+function closeUpdateModal(){
+  document.getElementById('update-overlay').classList.remove('visible');
+}
+
+// ── ヘルプ ──
+function openHelp(){document.getElementById('help-overlay').classList.add('visible');}
+function closeHelp(){document.getElementById('help-overlay').classList.remove('visible');}
+function switchTab(name,btn){
+  document.querySelectorAll('.htab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  document.getElementById('htab-routine').style.display=name==='routine'?'':'none';
+  document.getElementById('htab-setup').style.display=name==='setup'?'':'none';
+}
+function copyCmd(id,btn){
+  const text=document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>{btn.textContent='コピー済 ✓';btn.classList.add('copied');setTimeout(()=>{btn.textContent='コピー';btn.classList.remove('copied');},2000);}).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='コピー済 ✓';btn.classList.add('copied');setTimeout(()=>{btn.textContent='コピー';btn.classList.remove('copied');},2000);});
+}
+
+// ══════════════════════════════════════════════════════════
+// ページ切替
+// ══════════════════════════════════════════════════════════
+function switchPage(page){
+  const toDividend = page==='dividend';
+  document.getElementById('page-portfolio').style.display = toDividend ? 'none' : '';
+  const dp = document.getElementById('page-dividend');
+  if(toDividend) dp.classList.add('visible'); else dp.classList.remove('visible');
+  document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector(`.ptab[data-page="${page}"]`);
+  if(btn) btn.classList.add('active');
+  if(toDividend) renderDivPage();
+}
+
+// ══════════════════════════════════════════════════════════
+// 配当分析ページ
+// ══════════════════════════════════════════════════════════
+const MONTHS_JA=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+let divFilter='domestic', divMode='ex', divSelMonth=null, divCharts={}, divListMode='dividend';
+
+// 正確な円表示（1円単位・省略なし）
+function fmtExact(n){return Math.round(n).toLocaleString()+'円';}
+
+function setDivFilter(f,btn){
+  divFilter=f;
+  document.querySelectorAll('#div-filter-seg .div-seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  divSelMonth=null;
+  renderDivPage();
+}
+function setDivMode(m,btn){
+  divMode=m;
+  document.querySelectorAll('#div-mode-seg .div-seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  divSelMonth=null;
+  renderDivPage();
+}
+
+// 文字列から月番号配列を返す
+// 対応形式: "3/9月" "12月" "毎四半期" "2024-09-26"
+function parseMonthsFromStr(s){
+  if(!s) return [];
+  s=String(s).trim();
+  if(/^\d{4}-\d{2}/.test(s)) return [parseInt(s.substring(5,7))];
+  if(s.includes('四半期')) return [3,6,9,12];
+  const cleaned=s.replace(/月/g,'');
+  return cleaned.split('/').map(p=>parseInt(p.trim())).filter(n=>!isNaN(n)&&n>=1&&n<=12);
+}
+
+// 支払月を返す（payDateがあればそこから、なければ確定月+3ヶ月で推定）
+function getPayMonths(s){
+  if(s.payDate&&/^\d{4}-\d{2}/.test(String(s.payDate))){
+    return [parseInt(String(s.payDate).substring(5,7))];
+  }
+  const exM=parseMonthsFromStr(s.exDate);
+  return exM.map(m=>((m-1+3)%12)+1);
+}
+
+function getFilteredDivStocks(filter){
+  return allStocks.filter(s=>{
+    if(!s.divPerShare||s.divPerShare<=0||s.qty<=0) return false;
+    if(filter==='domestic') return s.type==='国内株式';
+    if(filter==='trust')    return s.type==='投資信託';
+    if(filter==='foreign')  return ['米国株式','中国株式','アセアン株式'].includes(s.type);
+    return true;
+  });
+}
+
+function buildMonthlyData(filter,mode){
+  const stocks=getFilteredDivStocks(filter);
+  const monthly=Array.from({length:12},()=>[]);
+
+  for(const s of stocks){
+    // ── 個別支払いデータがある場合（J-Quants/yfinance の詳細データ） ──
+    if(s.divPayments&&s.divPayments.length>0){
+      for(const pay of s.divPayments){
+        let m;
+        if(mode==='ex'){
+          m=pay.month;
+        }else{
+          // 支払月モード: 確定月+3ヶ月で推定（payDateがあればそちら優先）
+          m=pay.month?((pay.month-1+3)%12)+1:null;
+        }
+        if(m&&m>=1&&m<=12){
+          monthly[m-1].push({
+            ...s,
+            monthDiv:Math.round(pay.amount*s.qty),
+            payType: pay.type,   // '中間' '期末' '四半期' '配当'
+            payDate: pay.date,
+            isEstimated:false,
+          });
+        }
+      }
+    } else {
+      // ── フォールバック: 年間÷月数で均等分割（推定） ──
+      const annualDiv=s.divPerShare*s.qty;
+      const months=mode==='ex'?parseMonthsFromStr(s.exDate):getPayMonths(s);
+      if(!months.length) continue;
+      const divPerOccurrence=annualDiv/months.length;
+      for(const m of months){
+        if(m>=1&&m<=12){
+          monthly[m-1].push({
+            ...s,
+            monthDiv:Math.round(divPerOccurrence),
+            payType:'推定',
+            isEstimated:true,
+          });
+        }
+      }
+    }
+  }
+  return monthly;
+}
+
+// データ品質サマリー
+function divDataQuality(monthly){
+  let exact=0,estimated=0;
+  monthly.forEach(arr=>arr.forEach(x=>{if(x.isEstimated)estimated++;else exact++;}));
+  return {exact,estimated};
+}
+
+function renderDivPage(){
+  if(!allStocks.length) return;
+
+  // ── メトリクス ──
+  const allDivStocks=getFilteredDivStocks('all');
+  const annualTotal=allDivStocks.reduce((s,x)=>s+x.divPerShare*x.qty,0);
+  const totalVal=allDivStocks.reduce((s,x)=>s+x.val,0);
+  const weightedYield=totalVal>0?(annualTotal/totalVal*100):0;
+
+  const monthly=buildMonthlyData(divFilter,divMode);
+  const monthTotals=monthly.map(arr=>arr.reduce((s,x)=>s+x.monthDiv,0));
+  const maxVal=Math.max(...monthTotals);
+  const peakIdx=monthTotals.indexOf(maxVal);
+
+  // 口座別税率（特定のみ20.315%、NISA系・その他は0%）
+  const divTaxRate=s=>s.acct==='特定'?0.20315:0;
+  const annualAfterTax=allDivStocks.reduce((sum,s)=>sum+s.divPerShare*s.qty*(1-divTaxRate(s)),0);
+  const noDivCount=allStocks.length-allDivStocks.length;
+
+  document.getElementById('dm-annual').textContent=fmtExact(annualTotal);
+  document.getElementById('dm-annual-after').textContent=fmtExact(annualAfterTax);
+  document.getElementById('dm-monthly-avg').textContent=fmtExact(annualTotal/12);
+  document.getElementById('dm-yield').textContent=weightedYield.toFixed(2)+'%';
+
+  // 配当銘柄数（クリックで一覧切替）
+  const dmCount=document.getElementById('dm-count');
+  dmCount.textContent=`${allDivStocks.length}銘柄`;
+  dmCount.className='metric-value c-blue';
+  dmCount.style.cursor='pointer';
+  dmCount.onclick=()=>{divListMode='dividend';renderDivList();};
+
+  // 非配当銘柄数（クリックで一覧切替）
+  const dmNodiv=document.getElementById('dm-nodiv-count');
+  dmNodiv.textContent=`非配当: ${noDivCount}銘柄`;
+  dmNodiv.style.cursor='pointer';
+  dmNodiv.style.color='var(--text3)';
+  dmNodiv.onclick=()=>{divListMode='nodividend';renderDivList();};
+
+  // データ品質表示
+  const {exact,estimated}=divDataQuality(monthly);
+  const qEl=document.getElementById('div-quality-note');
+  if(qEl){
+    if(exact>0&&estimated>0)
+      qEl.textContent=`詳細データ:${exact}件 / 推定（年間÷回数）:${estimated}件`;
+    else if(exact>0)
+      qEl.textContent=`すべて詳細データ（中間・期末個別）`;
+    else
+      qEl.textContent=`推定値（年間配当を月数で均等分割）※ JSON更新で精度向上`;
+    qEl.style.color=estimated>0?'var(--amber)':'var(--green)';
+  }
+
+  renderDivMonthlyChart(monthly,monthTotals);
+
+  if(divSelMonth!==null) renderDivMonthDetail(monthly[divSelMonth-1],divSelMonth);
+  else document.getElementById('div-month-detail').style.display='none';
+
+  renderDivPortfolio();
+  renderDivList();
+}
+
+function renderDivMonthlyChart(monthly,monthTotals){
+  const bgColors=monthTotals.map((_,i)=>
+    divSelMonth===i+1?'#3b7bf6':'rgba(59,123,246,0.42)'
+  );
+  if(divCharts.monthly){divCharts.monthly.destroy();delete divCharts.monthly;}
+  divCharts.monthly=new Chart(document.getElementById('div-monthly-chart'),{
+    type:'bar',
+    data:{
+      labels:MONTHS_JA,
+      datasets:[{
+        label:'予想配当',
+        data:monthTotals.map(v=>Math.round(v)),
+        backgroundColor:bgColors,
+        borderRadius:8,
+        borderSkipped:false,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label:c=>`${c.raw.toLocaleString()}円`,
+          afterLabel:c=>`${monthly[c.dataIndex].length}銘柄`
+        }}
+      },
+      scales:{
+        y:{ticks:{callback:v=>`${Math.round(v/1e4)}万`,color:'#9ca3b4',font:{size:11}},grid:{color:'#f0f1f5'}},
+        x:{ticks:{color:'#374151',font:{size:12}},grid:{display:false}}
+      },
+      onClick:(_,elements)=>{
+        if(!elements.length) return;
+        const idx=elements[0].index;
+        divSelMonth=divSelMonth===idx+1?null:idx+1;
+        renderDivPage();
+      },
+      onHover:(_,elements,chart)=>{
+        chart.canvas.style.cursor=elements.length?'pointer':'default';
+      }
+    }
+  });
+}
+
+function renderDivMonthDetail(stocks,month){
+  const detail=document.getElementById('div-month-detail');
+  if(!stocks||!stocks.length){detail.style.display='none';return;}
+  detail.style.display='block';
+  const total=stocks.reduce((s,x)=>s+x.monthDiv,0);
+  document.getElementById('div-month-label').textContent=`${month}月の配当銘柄`;
+  document.getElementById('div-month-total').textContent=`合計 ${Math.round(total).toLocaleString()}円`;
+  const sorted=[...stocks].sort((a,b)=>(parseInt(a.code)||99999)-(parseInt(b.code)||99999));
+  document.getElementById('div-month-tbody').innerHTML=sorted.map(s=>{
+    // 種別バッジ
+    const typeBadge=(()=>{
+      const t=s.payType||'';
+      if(t==='期末')  return`<span class="badge" style="background:#d1fae5;color:#065f46;font-size:10px;">期末</span>`;
+      if(t==='中間')  return`<span class="badge" style="background:#dbeafe;color:#1d4ed8;font-size:10px;">中間</span>`;
+      if(t==='四半期')return`<span class="badge" style="background:#ede9fe;color:#6d28d9;font-size:10px;">四半期</span>`;
+      if(t==='配当')  return`<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px;">配当</span>`;
+      return`<span class="badge b-ref" style="font-size:10px;">推定</span>`;
+    })();
+    // 1回あたり配当/株
+    const perShare=s.isEstimated===false&&s.divPayments
+      ?(s.divPayments.find(p=>p.month===s.payMonth)||{amount:s.monthDiv/Math.max(s.qty,1)}).amount
+      :(s.qty>0?Math.round(s.monthDiv/s.qty*10)/10:0);
+    // 確定月・支払月
+    const exM=s.isEstimated===false&&s.payDate
+      ?parseInt(String(s.payDate).substring(5,7))
+      :parseMonthsFromStr(s.exDate)[0];
+    const payM=s.isEstimated===false
+      ?(s.payDate?parseInt(String(s.payDate).substring(5,7)):null)
+      :getPayMonths(s)[0];
+    const exStr=exM?exM+'月':'—';
+    const payStr=payM?payM+'月（推定）':'—';
+    const src=s.divSource==='jq'?'<span class="badge b-jq" style="font-size:9px;">JQ</span>'
+             :s.divSource==='yf'?'<span class="badge b-yf" style="font-size:9px;">yf</span>'
+             :'<span class="badge b-ref" style="font-size:9px;">参考</span>';
+    const annualDiv=Math.round(s.divPerShare*s.qty);
+    return`<tr>
+      <td style="font-weight:600;">${s.name}<br><span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">${s.code||''} · ${s.acct}</span></td>
+      <td style="text-align:center;">${typeBadge}</td>
+      <td class="mono" style="text-align:right;">${s.qty>0?s.qty.toLocaleString()+'株':'—'}</td>
+      <td class="mono" style="text-align:right;">${perShare>0?perShare.toLocaleString()+'円':'—'}</td>
+      <td class="mono c-amber" style="text-align:right;font-weight:700;">${Math.round(s.monthDiv).toLocaleString()}円</td>
+      <td class="mono" style="text-align:right;color:var(--text2);">${annualDiv.toLocaleString()}円</td>
+      <td style="text-align:center;font-size:12px;color:var(--text2);">${exStr}</td>
+      <td style="text-align:center;font-size:12px;color:var(--text2);">${payStr}</td>
+      <td>${src}</td>
+    </tr>`;
+  }).join('');
+}
+
+function clearDivMonth(){divSelMonth=null;renderDivPage();}
+
+function renderDivList(){
+  const byCode=(a,b)=>(parseInt(a.code)||99999)-(parseInt(b.code)||99999);
+
+  // 非配当銘柄モード
+  if(divListMode==='nodividend'){
+    const noDivStocks=allStocks
+      .filter(s=>!(s.divPerShare>0&&s.qty>0))
+      .slice().sort(byCode);
+    document.getElementById('div-list-count').textContent=`非配当 ${noDivStocks.length}銘柄（クリックで配当一覧に戻る）`;
+    document.getElementById('div-list-count').style.cursor='pointer';
+    document.getElementById('div-list-count').onclick=()=>{divListMode='dividend';renderDivList();};
+    document.getElementById('div-list-tbody').innerHTML=noDivStocks.map(s=>{
+      let bc='b-other',bl=s.acct;
+      if(s.acct.includes('NISA成長')){bc='b-nisa';bl='NISA成長';}
+      else if(s.acct.includes('つみたて')||s.acct.includes('積立')){bc='b-tsumitate';bl='つみたて';}
+      else if(s.acct.includes('旧NISA')){bc='b-old';bl='旧NISA';}
+      else if(s.acct==='特定'){bc='b-toku';bl='特定';}
+      return`<tr>
+        <td class="mono" style="color:var(--text3);font-size:12px;">${s.code||'—'}</td>
+        <td style="font-weight:600;" colspan="4" title="${s.name}">${s.name}</td>
+        <td><span class="badge ${bc}">${bl}</span></td>
+        <td class="mono" style="text-align:right;">${s.qty>0?s.qty.toLocaleString()+'株':'—'}</td>
+        <td class="mono" style="text-align:right;">${s.curPrice>0?s.curPrice.toLocaleString()+'円':'—'}</td>
+        <td style="color:var(--text3);font-size:12px;" colspan="4">配当情報なし</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
+  // 配当銘柄をコード順（数値昇順）で一覧表示
+  const stocks=getFilteredDivStocks('all')
+    .filter(s=>s.divPerShare>0&&s.qty>0)
+    .slice().sort(byCode);
+
+  document.getElementById('div-list-count').textContent=`${stocks.length}銘柄`;
+  document.getElementById('div-list-count').style.cursor='default';
+  document.getElementById('div-list-count').onclick=null;
+
+  document.getElementById('div-list-tbody').innerHTML=stocks.map(s=>{
+    const annualDiv=s.divPerShare*s.qty;
+    const taxRate=s.acct==='特定'?0.20315:0;
+    const afterTaxDiv=annualDiv*(1-taxRate);
+    const isNisa=s.acct!=='特定';
+    const yieldStr=s.divYield>0?`<span class="c-blue">${s.divYield.toFixed(2)}%</span>`:'—';
+    // 実質配当利回り = 税引後配当/株 ÷ 平均取得単価 × 100
+    const realYield=(s.avgPrice>0&&s.divPerShare>0)
+      ?s.divPerShare*(1-taxRate)/s.avgPrice*100
+      :null;
+    const realYieldStr=realYield!=null
+      ?`<span style="color:var(--purple);font-weight:600;${isNisa?'text-decoration:underline;':''}">${realYield.toFixed(2)}%</span>`
+      :'<span style="color:var(--text3);font-size:11px;">取得単価なし</span>';
+
+    // 中間・期末の個別金額（divPaymentsがある場合）
+    let interimStr='—', finalStr='—';
+    if(s.divPayments&&s.divPayments.length>0){
+      const interim=s.divPayments.find(p=>p.type==='中間');
+      const final_=s.divPayments.find(p=>p.type==='期末'||p.type==='配当');
+      if(interim) interimStr=`<span style="color:var(--blue);font-family:'DM Mono',monospace;">${interim.amount.toLocaleString()}円</span>`;
+      if(final_)  finalStr  =`<span style="color:var(--green);font-family:'DM Mono',monospace;">${final_.amount.toLocaleString()}円</span>`;
+    } else {
+      // 推定: 支払い回数で等分
+      const months=parseMonthsFromStr(s.exDate);
+      if(months.length>=2){
+        const each=Math.round(s.divPerShare/months.length*10)/10;
+        interimStr=`<span style="color:var(--text3);font-size:11px;">${each}円(推定)</span>`;
+        finalStr  =`<span style="color:var(--text3);font-size:11px;">${each}円(推定)</span>`;
+      } else if(months.length===1){
+        finalStr=`<span style="color:var(--text3);font-size:11px;">${s.divPerShare}円</span>`;
+      }
+    }
+
+    const exStr=(()=>{
+      const m=parseMonthsFromStr(s.exDate);
+      return m.length?m.join('・')+'月':'—';
+    })();
+
+    const src=s.divSource==='jq'?'<span class="badge b-jq" style="font-size:9px;">JQ</span>'
+             :s.divSource==='yf'?'<span class="badge b-yf" style="font-size:9px;">yf</span>'
+             :'<span class="badge b-ref" style="font-size:9px;">参考</span>';
+
+    let bc='b-other',bl=s.acct;
+    if(s.acct.includes('NISA成長')){bc='b-nisa';bl='NISA成長';}
+    else if(s.acct.includes('つみたて')||s.acct.includes('積立')){bc='b-tsumitate';bl='つみたて';}
+    else if(s.acct.includes('旧NISA')){bc='b-old';bl='旧NISA';}
+    else if(s.acct==='特定'){bc='b-toku';bl='特定';}
+
+    return`<tr>
+      <td class="mono" style="color:var(--text3);font-size:12px;">${s.code||'—'}</td>
+      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${s.name}">${s.name}</td>
+      <td><span class="badge ${bc}">${bl}</span></td>
+      <td class="mono" style="text-align:right;">${s.qty>0?s.qty.toLocaleString()+'株':'—'}</td>
+      <td class="mono" style="text-align:right;">${s.curPrice>0?s.curPrice.toLocaleString()+'円':'—'}</td>
+      <td class="mono" style="text-align:right;font-weight:600;">${s.divPerShare.toLocaleString()}円</td>
+      <td class="mono c-amber" style="text-align:right;font-weight:700;">${fmtExact(annualDiv)}</td>
+      <td class="mono" style="text-align:right;font-weight:700;color:var(--green);${isNisa?'text-decoration:underline;':''}">${fmtExact(afterTaxDiv)}</td>
+      <td style="text-align:right;">${yieldStr}</td>
+      <td style="text-align:right;">${realYieldStr}</td>
+      <td style="text-align:center;font-size:12px;color:var(--text2);">${exStr}</td>
+      <td style="text-align:center;">${interimStr}</td>
+      <td style="text-align:center;">${finalStr}</td>
+      <td>${src}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDivPortfolio(){
+  const stocks=getFilteredDivStocks('all')
+    .map(s=>({...s,annualDiv:Math.round(s.divPerShare*s.qty)}))
+    .filter(s=>s.annualDiv>0)
+    .sort((a,b)=>b.annualDiv-a.annualDiv);
+  if(!stocks.length) return;
+  const total=stocks.reduce((s,x)=>s+x.annualDiv,0);
+
+  // ── ドーナツ ──
+  const TOP=8;
+  const top=stocks.slice(0,TOP);
+  const othersTotal=stocks.slice(TOP).reduce((s,x)=>s+x.annualDiv,0);
+  const labels=top.map(s=>s.name.length>12?s.name.slice(0,12)+'…':s.name);
+  const data=top.map(s=>s.annualDiv);
+  if(othersTotal>0){labels.push('その他');data.push(othersTotal);}
+  const colors=[...PALETTE,'#94a3b8'];
+
+  document.getElementById('div-donut-total').textContent=Math.round(total/1e4)+'万';
+  document.getElementById('div-donut-legend').innerHTML=top.slice(0,7).map((s,i)=>`
+    <div class="legend-item">
+      <div class="legend-l"><div class="legend-dot" style="background:${colors[i]}"></div>
+        <span class="legend-name" style="font-size:11px;">${labels[i]}</span></div>
+      <span class="legend-val" style="font-size:11px;">${(s.annualDiv/total*100).toFixed(1)}%</span>
+    </div>`).join('');
+
+  if(divCharts.donut){divCharts.donut.destroy();delete divCharts.donut;}
+  divCharts.donut=new Chart(document.getElementById('div-donut-chart'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors.slice(0,data.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'68%',
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${Math.round(c.raw).toLocaleString()}円 (${(c.raw/total*100).toFixed(1)}%)`}}}}
+  });
+
+  // ── ランキング横棒グラフ ──
+  const rankTop=stocks.slice(0,15);
+  const rankLabels=rankTop.map(s=>s.name.length>14?s.name.slice(0,14)+'…':s.name);
+  const rankData=rankTop.map(s=>s.annualDiv);
+  const rankColors=rankTop.map((_,i)=>colors[i%colors.length]);
+
+  const barH=34, padH=48;
+  const wrapH=rankTop.length*barH+padH;
+  document.getElementById('div-rank-wrap').style.height=wrapH+'px';
+
+  if(divCharts.rank){divCharts.rank.destroy();delete divCharts.rank;}
+  divCharts.rank=new Chart(document.getElementById('div-rank-chart'),{
+    type:'bar',
+    data:{
+      labels:rankLabels,
+      datasets:[{
+        label:'年間配当',
+        data:rankData,
+        backgroundColor:rankColors.map(c=>c+'bb'),
+        borderColor:rankColors,
+        borderWidth:1,
+        borderRadius:6,
+        borderSkipped:false,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${Math.round(c.raw).toLocaleString()}円/年  (${(c.raw/total*100).toFixed(1)}%)`}}
+      },
+      scales:{
+        x:{ticks:{callback:v=>`${Math.round(v/1e4)}万`,color:'#9ca3b4',font:{size:11}},grid:{color:'#f0f1f5'}},
+        y:{ticks:{color:'#374151',font:{size:12}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// localStorage 自動保存・復元
+// ══════════════════════════════════════════════════════════
+const LS_CSV    = 'rakuten_csv_text';
+const LS_CNAME  = 'rakuten_csv_name';
+const LS_CDATE  = 'rakuten_csv_date';
+const LS_JSON   = 'rakuten_json';
+const LS_JDATE  = 'rakuten_json_date';
+const LS_APIKEY = 'jq_api_key';
+
+function saveCsvToStorage(text, fileName){
+  try{
+    localStorage.setItem(LS_CSV,  text);
+    localStorage.setItem(LS_CNAME,fileName);
+    localStorage.setItem(LS_CDATE,new Date().toISOString());
+    document.getElementById('save-indicator').style.display='';
+  }catch(e){/* 容量超過時は無視 */}
+}
+
+function saveJsonToStorage(json){
+  try{
+    localStorage.setItem(LS_JSON, JSON.stringify(json));
+    localStorage.setItem(LS_JDATE,new Date().toISOString());
+  }catch(e){}
+}
+
+function clearSavedData(){
+  [LS_CSV,LS_CNAME,LS_CDATE,LS_JSON,LS_JDATE].forEach(k=>localStorage.removeItem(k));
+  // ※ APIキー(LS_APIKEY)はデータ削除時も保持（再認証不要）
+  document.getElementById('restore-banner').style.display='none';
+  document.getElementById('drop-box').style.display='';
+}
+
+function fmtDateTime(iso){
+  if(!iso) return '—';
+  const d=new Date(iso);
+  return d.toLocaleDateString('ja-JP')+' '+d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+}
+
+// 起動時チェック: 保存済みデータがあれば復元バナーを表示
+function checkSavedData(){
+  const csvText=localStorage.getItem(LS_CSV);
+  if(!csvText) return;
+  const csvName=localStorage.getItem(LS_CNAME)||'不明';
+  const csvDate=fmtDateTime(localStorage.getItem(LS_CDATE));
+  const jsonDate=fmtDateTime(localStorage.getItem(LS_JDATE));
+  const info=`CSV: ${csvName}（${csvDate}保存）`
+    +(jsonDate!=='—'?`\nJSON: ${jsonDate}保存`:'');
+  document.getElementById('restore-info').textContent=info;
+  document.getElementById('restore-banner').style.display='';
+  document.getElementById('drop-box').style.display='none';
+}
+
+// 保存済みデータを復元してダッシュボードを開く
+async function restoreData(){
+  const csvText=localStorage.getItem(LS_CSV);
+  if(!csvText){clearSavedData();return;}
+  try{
+    const data=parseCSV(csvText);
+    if(!data.stocks.length) throw new Error('銘柄なし');
+    render(data);
+    // 保存済みJSONを復元
+    const savedJson=localStorage.getItem(LS_JSON);
+    if(savedJson){
+      try{applyJsonData(JSON.parse(savedJson));}catch(_){}
+    }
+    // server.pyが起動中ならJSONも自動取得
+    tryFetchJsonFromServer();
+  }catch(e){
+    clearSavedData();
+    showError('保存データの復元に失敗しました。CSVを再度読み込んでください。');
+  }
+}
+
+// server.py から portfolio_data.json を自動取得（起動中の場合のみ）
+async function tryFetchJsonFromServer(){
+  try{
+    const r=await fetch('/api/json',{signal:AbortSignal.timeout(3000)});
+    if(!r.ok) return;
+    const json=await r.json();
+    if(json.stocks){
+      applyJsonData(json);
+      saveJsonToStorage(json);
+      const chip=document.getElementById('yf-chip');
+      const gen=json.generated?new Date(json.generated).toLocaleDateString('ja-JP'):'';
+      const jqN=allStocks.filter(s=>s.divSource==='jq').length;
+      const yfN=allStocks.filter(s=>s.divSource==='yf').length;
+      const parts=[];if(jqN)parts.push(`JQ:${jqN}`);if(yfN)parts.push(`yf:${yfN}`);
+      chip.style.display='block';chip.textContent=`${parts.join(' ')} (${gen})`;
+    }
+  }catch(_){/* server.py未起動は無視 */}
+}
+
+// ── イベント ──
+const dropInner=document.getElementById('drop-inner');
+const dropZone=document.getElementById('drop-zone');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropInner.classList.add('dragover');});
+dropZone.addEventListener('dragleave',()=>dropInner.classList.remove('dragover'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropInner.classList.remove('dragover');handleFile(e.dataTransfer.files[0]);});
+document.getElementById('file-input').addEventListener('change',e=>{
+  const f=e.target.files[0];
+  handleFile(f);
+  // 同じファイルを再度選択できるようにリセット（iOS対策）
+  e.target.value='';
+});
+document.getElementById('json-input').addEventListener('change',e=>handleJsonFile(e.target.files[0]));
+document.getElementById('help-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeHelp();});
+document.getElementById('jqauth-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeJQAuth();});
+document.getElementById('jqauth-apikey').addEventListener('keydown',e=>{if(e.key==='Enter')submitJQAuth();});
+document.getElementById('update-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget&&!document.getElementById('btn-update-close').disabled)closeUpdateModal();});
+
+// 起動時: 保存済みデータを確認
+checkSavedData();
+</script>
+</body>
+</html>
