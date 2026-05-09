@@ -123,12 +123,19 @@ main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
 .ctog-label { font-size: 11px; color: var(--text3); margin-right: 2px; }
 .ctog { font-size: 11px; padding: 3px 11px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text3); cursor: pointer; font-family: inherit; transition: all .15s; }
 .ctog.on { background: var(--blue-bg); color: var(--blue); border-color: #bfcffe; }
-.table-wrap { overflow-x: auto; }
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 65vh; /* テーブル内でスクロール → stickyが確実に効く */
+}
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .05em; text-transform: uppercase; padding: 9px 12px; border-bottom: 2px solid var(--border); white-space: nowrap;
-  /* スティッキーヘッダー: header(61px) + page-nav(~49px) */
-  position: sticky; top: 110px; z-index: 5; background: var(--card);
-  box-shadow: 0 1px 0 var(--border);
+th {
+  text-align: left; font-size: 11px; font-weight: 600; color: var(--text3);
+  letter-spacing: .05em; text-transform: uppercase; padding: 9px 12px;
+  white-space: nowrap;
+  /* コンテナ内でのスティッキーヘッダー */
+  position: sticky; top: 0; z-index: 5; background: var(--card);
+  box-shadow: 0 2px 0 var(--border);
 }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
 tr:last-child td { border-bottom: none; }
@@ -285,11 +292,10 @@ tr:hover td { background: #f7f8fc; }
   #restore-banner { padding: 16px 18px; }
 
   /* テーブル: 横スクロール強制 */
-  .table-wrap, .month-sel-card .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap, .month-sel-card .table-wrap { overflow-x: auto; overflow-y: auto; -webkit-overflow-scrolling: touch; max-height: 60vh; }
   table { font-size: 12px; min-width: 480px; }
   th, td { padding: 8px 8px; }
-  /* モバイルはpage-navが非sticky → ヘッダーのみ分オフセット */
-  th { top: 56px; }
+  th { top: 0; } /* コンテナ内固定なのでオフセット不要 */
 
   /* 列トグルバー */
   .col-toggle-bar { gap: 4px; }
@@ -556,7 +562,7 @@ tr:hover td { background: #f7f8fc; }
           <span class="m-badge" id="div-month-total">—</span>
           <button onclick="clearDivMonth()" style="margin-left:auto;font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px;">✕ 閉じる</button>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" style="max-height:none;">
           <table>
             <thead><tr>
               <th>銘柄</th>
