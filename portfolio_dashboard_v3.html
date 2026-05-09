@@ -125,12 +125,17 @@ main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
 .ctog.on { background: var(--blue-bg); color: var(--blue); border-color: #bfcffe; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .05em; text-transform: uppercase; padding: 9px 12px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .05em; text-transform: uppercase; padding: 9px 12px; border-bottom: 2px solid var(--border); white-space: nowrap;
+  /* スティッキーヘッダー: header(61px) + page-nav(~49px) */
+  position: sticky; top: 110px; z-index: 5; background: var(--card);
+  box-shadow: 0 1px 0 var(--border);
+}
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: #f7f8fc; }
 .mono { font-family: 'DM Mono', monospace; }
 .sort-btn { cursor: pointer; user-select: none; }
+.sort-btn:hover { color: var(--blue); }
 .sort-btn:hover { color: var(--blue); }
 .badge { display: inline-flex; align-items: center; font-size: 10px; padding: 2px 8px; border-radius: 5px; font-weight: 600; gap: 3px; }
 .b-nisa     { background: #dbeafe; color: #1d4ed8; }
@@ -283,6 +288,8 @@ tr:hover td { background: #f7f8fc; }
   .table-wrap, .month-sel-card .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { font-size: 12px; min-width: 480px; }
   th, td { padding: 8px 8px; }
+  /* モバイルはpage-navが非sticky → ヘッダーのみ分オフセット */
+  th { top: 56px; }
 
   /* 列トグルバー */
   .col-toggle-bar { gap: 4px; }
@@ -596,17 +603,17 @@ tr:hover td { background: #f7f8fc; }
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr>
-              <th>コード</th>
-              <th>銘柄</th>
-              <th>口座</th>
-              <th style="text-align:right;">株数</th>
-              <th style="text-align:right;">最新株価</th>
-              <th style="text-align:right;">配当/株（年間）</th>
-              <th style="text-align:right;">年間受取（税引前）</th>
-              <th style="text-align:right;">年間受取（税引後）</th>
-              <th style="text-align:right;">配当利回り</th>
-              <th style="text-align:right;">実質配当利回り</th>
+            <thead><tr id="div-list-thead">
+              <th class="sort-btn" onclick="sortDivList('code')">コード<span id="dls-code"></span></th>
+              <th class="sort-btn" onclick="sortDivList('name')">銘柄<span id="dls-name"></span></th>
+              <th class="sort-btn" onclick="sortDivList('acct')">口座<span id="dls-acct"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('qty')">株数<span id="dls-qty"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('curPrice')">最新株価<span id="dls-curPrice"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('divPerShare')">配当/株（年間）<span id="dls-divPerShare"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('annualDiv')">年間受取（税引前）<span id="dls-annualDiv"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('afterTaxDiv')">年間受取（税引後）<span id="dls-afterTaxDiv"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('divYield')">配当利回り<span id="dls-divYield"></span></th>
+              <th class="sort-btn" style="text-align:right;" onclick="sortDivList('realYield')">実質配当利回り<span id="dls-realYield"></span></th>
               <th style="text-align:center;">確定月</th>
               <th style="text-align:center;">中間</th>
               <th style="text-align:center;">期末</th>
@@ -1432,6 +1439,17 @@ function switchPage(page){
 // ══════════════════════════════════════════════════════════
 const MONTHS_JA=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 let divFilter='domestic', divMode='ex', divSelMonth=null, divCharts={}, divListMode='dividend';
+let divListSortKey='code', divListSortAsc=true;
+
+function sortDivList(key){
+  if(divListSortKey===key){ divListSortAsc=!divListSortAsc; }
+  else { divListSortKey=key; divListSortAsc=(key==='code'||key==='name'); }
+  renderDivList();
+}
+function divListSortIcon(key){
+  if(divListSortKey!==key)return' ↕';
+  return divListSortAsc?' ↑':' ↓';
+}
 
 // 正確な円表示（1円単位・省略なし）
 function fmtExact(n){return Math.round(n).toLocaleString()+'円';}
@@ -1692,6 +1710,37 @@ function clearDivMonth(){divSelMonth=null;renderDivPage();}
 function renderDivList(){
   const byCode=(a,b)=>(parseInt(a.code)||99999)-(parseInt(b.code)||99999);
 
+  // ソートアイコン更新
+  ['code','name','acct','qty','curPrice','divPerShare','annualDiv','afterTaxDiv','divYield','realYield'].forEach(k=>{
+    const el=document.getElementById('dls-'+k);
+    if(el)el.textContent=divListSortIcon(k);
+  });
+
+  // ソート関数
+  function applySort(arr){
+    return arr.slice().sort((a,b)=>{
+      let va,vb;
+      const taxA=a.acct==='特定'?0.20315:0, taxB=b.acct==='特定'?0.20315:0;
+      switch(divListSortKey){
+        case 'code':    va=parseInt(a.code)||99999; vb=parseInt(b.code)||99999; break;
+        case 'name':    va=a.name||''; vb=b.name||''; break;
+        case 'acct':    va=a.acct||''; vb=b.acct||''; break;
+        case 'qty':     va=a.qty||0; vb=b.qty||0; break;
+        case 'curPrice':va=a.curPrice||0; vb=b.curPrice||0; break;
+        case 'divPerShare':va=a.divPerShare||0; vb=b.divPerShare||0; break;
+        case 'annualDiv':va=(a.divPerShare||0)*(a.qty||0); vb=(b.divPerShare||0)*(b.qty||0); break;
+        case 'afterTaxDiv':va=(a.divPerShare||0)*(a.qty||0)*(1-taxA); vb=(b.divPerShare||0)*(b.qty||0)*(1-taxB); break;
+        case 'divYield':va=a.divYield||0; vb=b.divYield||0; break;
+        case 'realYield':
+          va=(a.avgPrice>0&&a.divPerShare>0)?a.divPerShare*(1-taxA)/a.avgPrice:0;
+          vb=(b.avgPrice>0&&b.divPerShare>0)?b.divPerShare*(1-taxB)/b.avgPrice:0; break;
+        default: va=0; vb=0;
+      }
+      if(typeof va==='string') return divListSortAsc?va.localeCompare(vb,'ja'):vb.localeCompare(va,'ja');
+      return divListSortAsc?va-vb:vb-va;
+    });
+  }
+
   // 非配当銘柄モード
   if(divListMode==='nodividend'){
     const noDivStocks=allStocks
@@ -1718,10 +1767,10 @@ function renderDivList(){
     return;
   }
 
-  // 配当銘柄をコード順（数値昇順）で一覧表示
-  const stocks=getFilteredDivStocks('all')
-    .filter(s=>s.divPerShare>0&&s.qty>0)
-    .slice().sort(byCode);
+  // 配当銘柄を選択されたキーでソートして一覧表示
+  const stocks=applySort(
+    getFilteredDivStocks('all').filter(s=>s.divPerShare>0&&s.qty>0)
+  );
 
   document.getElementById('div-list-count').textContent=`${stocks.length}銘柄`;
   document.getElementById('div-list-count').style.cursor='default';
